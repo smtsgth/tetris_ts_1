@@ -261,7 +261,7 @@ async function renderScreenshots(data, aggregated) {
 
             const chartInit = new Chart(cInit.getContext('2d'), {
             data: { datasets: datasetsInit },
-            options: { responsive:false, scales: { x: { type: 'linear', title: { display: true, text: 'ms' } }, y: { title: { display: true, text: 'count' } } }, plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, title: { display: true, text: sideTitle + ' — initial gaps (keydown → first arr)', font: { size: 16 } } }, animation: false },
+            options: { responsive:false, scales: { x: { type: 'linear', title: { display: true, text: 'ms' } }, y: { title: { display: true, text: 'count' } } }, plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, tooltip: { callbacks: { label: function(ctx){ var raw = ctx.raw; var val = (raw && raw.y !== undefined) ? raw.y : (typeof raw === 'number'?raw: (raw && raw.x!==undefined? raw.x : JSON.stringify(raw))); if (typeof val === 'number') val = Math.round(val*100)/100; return (ctx.dataset && ctx.dataset.label?ctx.dataset.label+': ':'') + String(val); } } }, title: { display: true, text: sideTitle + ' — initial gaps (keydown → first arr)', font: { size: 16 } } }, animation: false, interaction: { mode: 'nearest', axis: 'x', intersect: false } },
             plugins: [{ id: 'vlines', afterDraw(chart){
               const ctx = chart.ctx;
               const canvas = chart.canvas;
@@ -295,27 +295,43 @@ async function renderScreenshots(data, aggregated) {
                 ctx.restore();
               }
 
-              // draw per-variant key and stats at top-left for quick reference
+              // draw per-variant key and stats at top-left for quick reference (with background)
               try {
                 const variantInfo = chart.canvas._variantInfo || cInit._variantInfo || [];
                 if (variantInfo && variantInfo.length) {
-                  let vx = area.left + 8;
-                  let vy = area.top + 8;
+                  ctx.save();
+                  ctx.font = '12px sans-serif';
+                  // compute max width
+                  let maxW = 0;
+                  const rows = [];
                   for (const vi of variantInfo) {
-                    ctx.save();
+                    const meanText = (vi.mean !== null && vi.mean !== undefined) ? (' mean=' + (Math.round(vi.mean*100)/100)) : '';
+                    const medianText = (vi.median !== null && vi.median !== undefined) ? (' median=' + (Math.round(vi.median*100)/100)) : '';
+                    const txt = vi.label + ' N=' + (vi.n||0) + meanText + medianText;
+                    rows.push({txt: txt, color: vi.color || '#000'});
+                    const w = ctx.measureText(txt).width;
+                    if (w > maxW) maxW = w;
+                  }
+                  const vx = area.left + 8;
+                  let vy = area.top + 8;
+                  const bgW = 12 + 6 + maxW + 18;
+                  const bgH = rows.length * 16 + 8;
+                  // background box
+                  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                  ctx.fillRect(vx - 6, vy - 6, bgW, bgH);
+                  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+                  ctx.strokeRect(vx - 6, vy - 6, bgW, bgH);
+                  // draw rows
+                  for (const r of rows) {
                     try {
-                      ctx.fillStyle = vi.color || '#000';
+                      ctx.fillStyle = r.color || '#000';
                       ctx.fillRect(vx, vy, 12, 8);
                       ctx.fillStyle = 'rgba(0,0,0,0.85)';
-                      ctx.font = '12px sans-serif';
-                      const meanText = (vi.mean !== null && vi.mean !== undefined) ? (' mean=' + (Math.round(vi.mean*100)/100)) : '';
-                      const medianText = (vi.median !== null && vi.median !== undefined) ? (' median=' + (Math.round(vi.median*100)/100)) : '';
-                      const txt = vi.label + ' N=' + (vi.n||0) + meanText + medianText;
-                      ctx.fillText(txt, vx + 18, vy + 8);
-                    } catch(e){}
-                    ctx.restore();
+                      ctx.fillText(r.txt, vx + 18, vy + 8);
+                    } catch (e) {}
                     vy += 16;
                   }
+                  ctx.restore();
                 }
               } catch(e){}
 
@@ -378,9 +394,10 @@ async function renderScreenshots(data, aggregated) {
           }
           const chartArr = new Chart(cArr.getContext('2d'), {
             data: { datasets: datasetsArr },
-            options: { responsive:false, scales: { x:{ type:'linear', title:{display:true,text:'ms'} }, y:{ title:{display:true,text:'count'} } }, plugins: { legend:{ position:'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, title: { display: true, text: sideTitle + ' — ARR intervals', font: { size: 16 } } }, animation: false },
+            options: { responsive:false, scales: { x:{ type:'linear', title:{display:true,text:'ms'} }, y:{ title:{display:true,text:'count'} } }, plugins: { legend:{ position:'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, tooltip: { callbacks: { label: function(ctx){ var raw = ctx.raw; var val = (raw && raw.y !== undefined) ? raw.y : (typeof raw === 'number'?raw: (raw && raw.x!==undefined? raw.x : JSON.stringify(raw))); if (typeof val === 'number') val = Math.round(val*100)/100; return (ctx.dataset && ctx.dataset.label?ctx.dataset.label+': ':'') + String(val); } } }, title: { display: true, text: sideTitle + ' — ARR intervals', font: { size: 16 } } }, animation: false, interaction: { mode: 'nearest', axis: 'x', intersect: false } },
             plugins: [{ id:'annot', afterDraw(chart){ try{ const ctx = chart.ctx; const area = chart.chartArea; ctx.save(); // draw per-variant info top-left
-              try{ const variantInfo = chart.canvas._variantInfo || cArr._variantInfo || []; let vx = area.left + 8; let vy = area.top + 8; for (const vi of variantInfo){ ctx.save(); ctx.fillStyle = vi.color||'#000'; ctx.fillRect(vx, vy, 12, 8); ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.font='12px sans-serif'; const meanT = (vi.mean!==null&&vi.mean!==undefined)?(' mean='+Math.round(vi.mean*100)/100):''; const txt = vi.label + ' N=' + (vi.n||0) + meanT; ctx.fillText(txt, vx+18, vy+8); ctx.restore(); vy += 16; } }catch(e){}
+              try{ const variantInfo = chart.canvas._variantInfo || cArr._variantInfo || []; if(variantInfo && variantInfo.length){ ctx.font='12px sans-serif'; let maxW=0; const rows=[]; for(const vi of variantInfo){ const meanT=(vi.mean!==null&&vi.mean!==undefined)?(' mean='+Math.round(vi.mean*100)/100):''; const txt=vi.label+' N='+(vi.n||0)+meanT; rows.push({txt:txt,color:vi.color||'#000'}); const w=ctx.measureText(txt).width; if(w>maxW) maxW=w; } const vx=area.left+8; let vy=area.top+8; const bgW=12+6+maxW+18; const bgH=rows.length*16+8; ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.fillRect(vx-6,vy-6,bgW,bgH); ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.strokeRect(vx-6,vy-6,bgW,bgH); for(const r of rows){ try{ ctx.fillStyle=r.color||'#000'; ctx.fillRect(vx,vy,12,8); ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillText(r.txt,vx+18,vy+8); }catch(e){} vy+=16; } }
+              }catch(e){}
               // fallback: total N top-right
               try{ const total = (Array.isArray(arrAll) && arrAll.length)?('N='+arrAll.length):''; if(total) ctx.fillText(total, area.right-60, area.top+16); }catch(e){}
               ctx.restore(); }catch(e){} } }]
@@ -422,11 +439,12 @@ async function renderScreenshots(data, aggregated) {
             options: {
               responsive: false,
               scales: { x: { type: 'linear', title: { display: true, text: 'ms' } }, y: { title: { display: true, text: 'count' } } },
-              plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, title: { display: true, text: 'Soft-drop intervals (aggregated)', font: { size: 16 } } },
+              plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 12, padding: 8 } }, tooltip: { callbacks: { label: function(ctx){ var raw = ctx.raw; var val = (raw && raw.y !== undefined) ? raw.y : (typeof raw === 'number'?raw: (raw && raw.x!==undefined? raw.x : JSON.stringify(raw))); if (typeof val === 'number') val = Math.round(val*100)/100; return (ctx.dataset && ctx.dataset.label?ctx.dataset.label+': ':'') + String(val); } } }, title: { display: true, text: 'Soft-drop intervals (aggregated)', font: { size: 16 } } },
               animation: false
             }
           , plugins: [{ id:'annot', afterDraw(chart){ try{ const ctx=chart.ctx; const area=chart.chartArea; ctx.save(); // draw per-variant info top-left
-              try{ const variantInfo = chart.canvas._variantInfo || c._variantInfo || []; let vx = area.left + 8; let vy = area.top + 8; for (const vi of variantInfo){ ctx.save(); ctx.fillStyle = vi.color||'#000'; ctx.fillRect(vx, vy, 12, 8); ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.font='12px sans-serif'; const txt = vi.label + ' N=' + (vi.n||0); ctx.fillText(txt, vx+18, vy+8); ctx.restore(); vy += 16; } }catch(e){}
+              try{ const variantInfo = chart.canvas._variantInfo || c._variantInfo || []; if(variantInfo && variantInfo.length){ ctx.font='12px sans-serif'; let maxW=0; const rows=[]; for(const vi of variantInfo){ const txt = vi.label + ' N=' + (vi.n||0); rows.push({txt:txt,color:vi.color||'#000'}); const w=ctx.measureText(txt).width; if(w>maxW) maxW=w; } const vx=area.left+8; let vy=area.top+8; const bgW=12+6+maxW+18; const bgH=rows.length*16+8; ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.fillRect(vx-6,vy-6,bgW,bgH); ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.strokeRect(vx-6,vy-6,bgW,bgH); for(const r of rows){ try{ ctx.fillStyle=r.color||'#000'; ctx.fillRect(vx,vy,12,8); ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillText(r.txt,vx+18,vy+8); }catch(e){} vy+=16; } }
+              }catch(e){}
               ctx.restore(); }catch(e){} } }]
           });
           window.chartsReady = true;
