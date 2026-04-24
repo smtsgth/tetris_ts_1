@@ -1,0 +1,45 @@
+name: Timestamps Data CI
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'scripts/**'
+      - 'src/**'
+      - 'dist/**'
+
+jobs:
+  collect-and-plot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start http-server
+        run: npx http-server -c-1 . -p 8080 & sleep 2
+
+      - name: Run batch recordings (30 runs)
+        run: node scripts/batch_record_runs.js 30
+
+      - name: Aggregate analysis (bootstrap 10000)
+        run: node scripts/analyze_timestamps_aggregate.js 10000
+
+      - name: Generate plots
+        run: node scripts/plot_timestamps.js
+
+      - name: Upload recordings artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: recordings
+          path: recordings

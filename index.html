@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tetris TS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="game-area">
+      <!-- left column: Hold, Info, Input settings -->
+      <div id="left-hud" role="region" aria-label="Game controls">
+        <div id="hold"><div class="label">Hold</div><canvas id="hold-canvas" width="120" height="120" aria-label="Hold piece"></canvas></div>
+        <div id="info">
+          <div>Score: <span id="score" aria-live="polite" aria-atomic="true">0</span></div>
+          <div>Lines: <span id="lines">0</span></div>
+          <div>Level: <span id="level">0</span></div>
+          <div class="b2b-row"><span id="b2b-icon" class="b2b-icon off" role="status" aria-live="polite">B2B</span> <span>B2B: <span id="b2b">OFF</span></span></div>
+          <div>Combo: <span id="combo" class="combo">0</span></div>
+          <div id="log-container"><div class="label">Log</div><ul id="log" role="log" aria-live="polite"></ul></div>
+        </div>
+
+        <div id="input-settings" role="group" aria-labelledby="input-settings-label">
+          <div class="label" id="input-settings-label">入力設定</div>
+          <div class="setting-row">
+            <label for="das-range">DAS (ms)</label>
+            <input id="das-range" type="range" min="10" max="500" step="10" aria-label="DAS スライダー" role="slider" aria-valuemin="10" aria-valuemax="500" aria-valuenow="170" aria-describedby="das-number">
+            <input id="das-number" type="number" min="10" max="500" step="10" aria-label="DAS ミリ秒">
+          </div>
+          <div class="setting-row">
+            <label for="arr-range">ARR (ms)</label>
+            <input id="arr-range" type="range" min="0" max="200" step="5" aria-label="ARR スライダー" role="slider" aria-valuemin="0" aria-valuemax="200" aria-valuenow="30" aria-describedby="arr-number">
+            <input id="arr-number" type="number" min="0" max="200" step="5" aria-label="ARR ミリ秒">
+          </div>
+          <div class="setting-row">
+            <label for="preset-select">Preset</label>
+            <select id="preset-select" aria-label="設定プリセット">
+              <option value="default">Default</option>
+              <option value="fast">Fast</option>
+              <option value="slow">Slow</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="soft-range">Soft Drop (ms)</label>
+            <input id="soft-range" type="range" min="5" max="200" step="5" aria-label="Soft Drop スライダー" role="slider" aria-valuemin="5" aria-valuemax="200" aria-valuenow="50" aria-describedby="soft-number">
+            <input id="soft-number" type="number" min="5" max="200" step="5" aria-label="Soft Drop 間隔 ミリ秒">
+          </div>
+          <div class="setting-actions">
+            <button id="reset-settings">Reset Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <canvas id="board" width="300" height="600" tabindex="0" role="application" aria-label="Tetris game board"></canvas>
+      <div id="overlay"><div id="overlay-msg" class="overlay-msg"></div></div>
+      <div id="game-over" class="game-over" aria-hidden="true">
+        <div class="game-over-inner">
+          <div id="game-over-title">GAME OVER</div>
+          <div id="game-over-stats" class="game-over-stats">
+            <div>Score: <span id="go-score">0</span></div>
+            <div>Lines: <span id="go-lines">0</span></div>
+          </div>
+          <button id="restart-btn" class="restart-btn">Restart</button>
+        </div>
+      </div>
+      <div id="hud">
+        <div id="next"><div class="label">Next</div><canvas id="next-canvas" width="120" height="240"></canvas></div>
+      </div>
+    </div>
+    <div id="controls">
+      <p>操作: ← → 移動, x/↑ 右回転, z 左回転, ↓ ソフトドロップ, Space ハードドロップ, c ホールド, p 一時停止</p>
+      <!-- Accessibility live region -->
+      <div id="a11y-notify" aria-live="polite" class="sr-only"></div>
+    </div>
+  </div>
+
+  <script type="module" src="dist/main.js"></script>
+</body>
+</html>
