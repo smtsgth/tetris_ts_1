@@ -4,8 +4,19 @@ export default class Game {
     constructor() {
         this.current = null;
         this.nextQueue = [];
-        this.hold = null;
-        this.canHold = true;
+        this.hold1 = null;
+        this.hold2 = null;
+        // AI / settings: how many next pieces to maintain (useful for AI planning)
+        this.nextQueueLength = 16;
+        // allow toggling hold usage programmatically
+        this.allowHold1 = true;
+        this.allowHold2 = true;
+        // hold swap tracking to allow unlimited holds per turn but prevent rapid toggling between slots
+        this.lastHoldSlot = null;
+        this.lastHoldTimestamp = 0;
+        this.HOLD_SWAP_COOLDOWN = 220; // ms minimum between switching slots
+        // prevent multiple holds on the same spawned piece
+        this.holdUsedThisTurn = false;
         this.score = 0;
         this.lines = 0;
         this.level = 0;
@@ -28,15 +39,17 @@ export default class Game {
         this.board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
         this.bag = new Bag();
         this.nextQueue = [];
-        for (let i = 0; i < 6; i++)
+        for (let i = 0; i < this.nextQueueLength; i++)
             this.nextQueue.push(this.bag.next());
-        this.hold = null;
-        this.canHold = true;
+        this.hold1 = null;
+        this.hold2 = null;
         this.score = 0;
         this.lines = 0;
         this.level = 0;
         this.over = false;
         this.paused = false;
+        this.lastHoldSlot = null;
+        this.lastHoldTimestamp = 0;
         this.lastMoveWasRotation = false;
         this.b2b = false;
         this.combo = 0;
@@ -44,8 +57,25 @@ export default class Game {
         this.spawn();
         this.emit();
     }
+    // allow updating how many next pieces are kept in the queue
+    setNextQueueLength(n) {
+        const v = Math.max(1, Math.floor(Number(n) || 0));
+        this.nextQueueLength = v;
+        while (this.nextQueue.length < this.nextQueueLength)
+            this.nextQueue.push(this.bag.next());
+        while (this.nextQueue.length > this.nextQueueLength)
+            this.nextQueue.pop();
+    }
+    setAllowHold1(v) { this.allowHold1 = !!v; }
+    setAllowHold2(v) { this.allowHold2 = !!v; }
     pushNotification(msg) {
-        this.notifications.push({ msg, ts: Date.now() });
+        const payload = { msg, ts: Date.now() };
+        this.notifications.push(payload);
+        // dispatch a DOM event so UI layers can react immediately (toasts, flashes)
+        try {
+            window.dispatchEvent(new CustomEvent('game-notification', { detail: payload }));
+        }
+        catch (e) { }
         if (this.notifications.length > 20)
             this.notifications.shift();
     }
@@ -57,7 +87,10 @@ export default class Game {
         this.current = new Piece(t);
         this.current.x = 3;
         this.current.y = -1;
-        this.canHold = true;
+        // reset per-turn hold tracking for the newly spawned piece
+        this.lastHoldSlot = null;
+        this.lastHoldTimestamp = 0;
+        this.holdUsedThisTurn = false;
         if (!this.isValidPos(this.current.matrix, this.current.x, this.current.y)) {
             this.over = true;
         }
@@ -141,21 +174,75 @@ export default class Game {
             this.lock();
         }
     }
-    holdPiece() {
-        if (!this.current || !this.canHold)
+    // holdPiece: swap current with specified hold slot (1 or 2). Default slot=1 for compatibility
+    holdPiece(slot = 1) {
+        if (!this.current)
             return;
+        if (this.over)
+            return;
+        if (slot !== 1 && slot !== 2)
+            return;
+        // respect allowHold toggles
+        if (slot === 1 && !this.allowHold1) {
+            this.pushNotification('Hold1 は無効です');
+            return;
+        }
+        if (slot === 2 && !this.allowHold2) {
+            this.pushNotification('Hold2 は無効です');
+            return;
+        }
+        const now = Date.now();
+        // prevent multiple holds for the same spawned piece
+        if (this.holdUsedThisTurn) {
+            this.pushNotification('ホールドはこのターンですでに使用されています');
+            return;
+        }
+        // prevent very rapid swaps between different slots
+        if (this.lastHoldSlot !== null && this.lastHoldSlot !== slot && (now - this.lastHoldTimestamp) < this.HOLD_SWAP_COOLDOWN) {
+            this.pushNotification('ホールド切替は速すぎます');
+            return;
+        }
         const curType = this.current.type;
-        if (this.hold) {
-            this.current = new Piece(this.hold);
-            this.current.x = 3;
-            this.current.y = -1;
-            this.hold = curType;
+        if (slot === 1) {
+            const prev = this.hold1;
+            if (prev) {
+                // swap
+                this.current = new Piece(prev);
+                this.current.x = 3;
+                this.current.y = -1;
+                this.hold1 = curType;
+                this.pushNotification(`Hold1 交換: ${prev}↔${curType}`);
+                // mark last hold on this turn
+                this.lastHoldSlot = 1;
+                this.lastHoldTimestamp = Date.now();
+                this.holdUsedThisTurn = true;
+            }
+            else {
+                // store and spawn next
+                this.hold1 = curType;
+                this.pushNotification(`Hold1 保存: ${curType}`);
+                this.spawn();
+                // spawn resets per-turn tracking
+            }
         }
         else {
-            this.hold = curType;
-            this.spawn();
+            const prev = this.hold2;
+            if (prev) {
+                this.current = new Piece(prev);
+                this.current.x = 3;
+                this.current.y = -1;
+                this.hold2 = curType;
+                this.pushNotification(`Hold2 交換: ${prev}↔${curType}`);
+                this.lastHoldSlot = 2;
+                this.lastHoldTimestamp = Date.now();
+                this.holdUsedThisTurn = true;
+            }
+            else {
+                this.hold2 = curType;
+                this.pushNotification(`Hold2 保存: ${curType}`);
+                this.spawn();
+            }
         }
-        this.canHold = false;
         this.lastMoveWasRotation = false;
         this.emit();
     }
@@ -312,8 +399,11 @@ export default class Game {
         return {
             board: this.board,
             current: this.current,
-            next: this.nextQueue.slice(0, 5),
-            hold: this.hold,
+            // return full queued pieces so renderer/UI can choose how many to show
+            next: this.nextQueue.slice(),
+            // expose hold1 as `hold` for backwards compatibility and expose hold2 as `hold2`
+            hold: this.hold1,
+            hold2: this.hold2,
             score: this.score,
             lines: this.lines,
             level: this.level,

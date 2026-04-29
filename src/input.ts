@@ -12,9 +12,17 @@ export default class Input {
   private downTimer: number | null = null;
 
   // tuning (tunable values)
-  private DAS = 170; // ms before auto-repeat (tuned)
-  private ARR = 30;  // ms between auto-moves (tuned)
-  private SOFT_DROP_INTERVAL = 50; // ms (tuned)
+  private DAS = 5; // ms before auto-repeat (default preset)
+  private ARR = 25;  // ms between auto-moves (default preset)
+  private SOFT_DROP_INTERVAL = 15; // ms (default preset)
+
+  // Public accessors so UI can update tuning at runtime
+  public getDAS() { return this.DAS; }
+  public setDAS(ms: number) { this.DAS = Math.max(0, Math.floor(ms)); }
+  public getARR() { return this.ARR; }
+  public setARR(ms: number) { this.ARR = Math.max(0, Math.floor(ms)); }
+  public getSoftDropInterval() { return this.SOFT_DROP_INTERVAL; }
+  public setSoftDropInterval(ms: number) { this.SOFT_DROP_INTERVAL = Math.max(0, Math.floor(ms)); }
 
   constructor(game: Game) {
     this.game = game;
@@ -29,8 +37,47 @@ export default class Input {
   public clearLogs() { this.eventLog = []; }
   private now() { return (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now(); }
 
+  // reset input state and clear timers (used by UI restart)
+  public reset() {
+    try { if (this.leftDasTimer) { (globalThis as any).clearTimeout(this.leftDasTimer); this.leftDasTimer = null; } } catch (e) { }
+    try { if (this.leftArrTimer) { (globalThis as any).clearInterval(this.leftArrTimer); this.leftArrTimer = null; } } catch (e) { }
+    try { if (this.rightDasTimer) { (globalThis as any).clearTimeout(this.rightDasTimer); this.rightDasTimer = null; } } catch (e) { }
+    try { if (this.rightArrTimer) { (globalThis as any).clearInterval(this.rightArrTimer); this.rightArrTimer = null; } } catch (e) { }
+    try { if (this.downTimer) { (globalThis as any).clearInterval(this.downTimer); this.downTimer = null; } } catch (e) { }
+    this.keyState = {};
+    this.clearLogs();
+  }
+
   private onKeyDown(e: KeyboardEvent) {
     const k = e.key;
+    // allow pause/resume/restart keys regardless of paused/over state
+    try {
+      const s = this.game && typeof this.game.getState === 'function' ? this.game.getState() : null;
+      // ESC toggles pause/resume
+      if (k === 'Escape') {
+        try { if (typeof this.game.togglePause === 'function') this.game.togglePause(); } catch (er) { }
+        e.preventDefault();
+        return;
+      }
+      // if game over: allow R/Enter to restart, otherwise ignore other inputs
+      if (s && s.over) {
+        if (k === 'r' || k === 'R' || k === 'Enter') {
+          try { this.reset(); } catch (er) { }
+          try { this.game.reset(); } catch (er) { }
+        }
+        return;
+      }
+      // while paused: allow R to restart (ESC handled above), ignore other gameplay inputs
+      if (s && s.paused) {
+        if (k === 'r' || k === 'R') {
+          try { this.reset(); } catch (er) { }
+          try { this.game.reset(); } catch (er) { }
+        }
+        return;
+      }
+
+    } catch (e) { }
+
     if (this.keyState[k]) return;
     this.keyState[k] = true;
     this.eventLog.push({ type: 'keydown', key: k, time: this.now() });
@@ -41,9 +88,18 @@ export default class Input {
         try { const s = this.game.getState(); this.eventLog.push({ type: 'move', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
         this.leftDasTimer = (globalThis as any).setTimeout(() => {
           this.eventLog.push({ type: 'das-fired', key: k, time: this.now() });
+          // if game ended or paused before DAS elapsed, don't start ARR
+          try { const s = this.game.getState(); if (s.over || s.paused) return; } catch (e) { }
           this.leftArrTimer = (globalThis as any).setInterval(() => {
+            try {
+              const s = this.game.getState();
+              if (s.over || s.paused) {
+                if (this.leftArrTimer) { (globalThis as any).clearInterval(this.leftArrTimer); this.leftArrTimer = null; }
+                return;
+              }
+            } catch (e) { }
             this.game.move(-1,0);
-            try { const s = this.game.getState(); this.eventLog.push({ type: 'arr-move', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
+            try { const s2 = this.game.getState(); this.eventLog.push({ type: 'arr-move', key: k, time: this.now(), pos: s2.current ? { x: s2.current.x, y: s2.current.y } : null }); } catch (e) {}
           }, this.ARR);
         }, this.DAS);
         break;
@@ -52,9 +108,17 @@ export default class Input {
         try { const s = this.game.getState(); this.eventLog.push({ type: 'move', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
         this.rightDasTimer = (globalThis as any).setTimeout(() => {
           this.eventLog.push({ type: 'das-fired', key: k, time: this.now() });
+          try { const s = this.game.getState(); if (s.over || s.paused) return; } catch (e) { }
           this.rightArrTimer = (globalThis as any).setInterval(() => {
+            try {
+              const s = this.game.getState();
+              if (s.over || s.paused) {
+                if (this.rightArrTimer) { (globalThis as any).clearInterval(this.rightArrTimer); this.rightArrTimer = null; }
+                return;
+              }
+            } catch (e) { }
             this.game.move(1,0);
-            try { const s = this.game.getState(); this.eventLog.push({ type: 'arr-move', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
+            try { const s2 = this.game.getState(); this.eventLog.push({ type: 'arr-move', key: k, time: this.now(), pos: s2.current ? { x: s2.current.x, y: s2.current.y } : null }); } catch (e) {}
           }, this.ARR);
         }, this.DAS);
         break;
@@ -71,8 +135,15 @@ export default class Input {
         this.game.softDrop();
         try { const s = this.game.getState(); this.eventLog.push({ type: 'softdrop', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
         this.downTimer = (globalThis as any).setInterval(() => {
+          try {
+            const s = this.game.getState();
+            if (s.over || s.paused) {
+              if (this.downTimer) { (globalThis as any).clearInterval(this.downTimer); this.downTimer = null; }
+              return;
+            }
+          } catch (e) { }
           this.game.softDrop();
-          try { const s = this.game.getState(); this.eventLog.push({ type: 'softdrop', key: k, time: this.now(), pos: s.current ? { x: s.current.x, y: s.current.y } : null }); } catch (e) {}
+          try { const s2 = this.game.getState(); this.eventLog.push({ type: 'softdrop', key: k, time: this.now(), pos: s2.current ? { x: s2.current.x, y: s2.current.y } : null }); } catch (e) {}
         }, this.SOFT_DROP_INTERVAL);
         break;
       case ' ':
@@ -81,7 +152,11 @@ export default class Input {
         break;
       case 'c':
       case 'C':
-        this.game.holdPiece();
+        try { if (typeof this.game.holdPiece === 'function') this.game.holdPiece(1); } catch (e) {}
+        break;
+      case 'v':
+      case 'V':
+        try { if (typeof this.game.holdPiece === 'function') this.game.holdPiece(2); } catch (e) {}
         break;
       case 'p':
       case 'P':

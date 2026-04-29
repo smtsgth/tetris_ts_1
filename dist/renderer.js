@@ -13,11 +13,78 @@ function fitCanvas(canvas, cols, rows) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return ctx;
 }
+function fitCanvasPx(canvas, widthPx, heightPx) {
+    if (!canvas)
+        return null;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(0, Math.round(widthPx * dpr));
+    canvas.height = Math.max(0, Math.round(heightPx * dpr));
+    canvas.style.width = `${Math.max(0, Math.round(widthPx))}px`;
+    canvas.style.height = `${Math.max(0, Math.round(heightPx))}px`;
+    const ctx = canvas.getContext('2d');
+    if (ctx)
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return ctx;
+}
 export default class Renderer {
+    setNextCount(n) {
+        const v = Math.max(1, Math.min(6, Math.floor(Number(n) || 0)));
+        this.nextCount = v;
+        try {
+            this.resizeNextCanvas();
+        }
+        catch (e) { }
+        try {
+            this.render();
+        }
+        catch (e) { }
+    }
+    getNextCount() { return this.nextCount; }
+    resizeNextCanvas() {
+        if (!this.boardCanvas || !this.nextCanvas)
+            return;
+        // use offsetHeight to include borders and ensure a pixel-accurate match
+        const boardHeight = this.boardCanvas.offsetHeight;
+        const nextWrapper = this.nextCanvas.parentElement;
+        let padTop = 0, padBottom = 0, labelHeight = 0, labelMarginBottom = 0;
+        try {
+            if (nextWrapper) {
+                const cs = window.getComputedStyle(nextWrapper);
+                padTop = parseFloat(cs.paddingTop) || 0;
+                padBottom = parseFloat(cs.paddingBottom) || 0;
+                const labelEl = nextWrapper.querySelector('.label');
+                if (labelEl) {
+                    const lcs = window.getComputedStyle(labelEl);
+                    labelHeight = labelEl.offsetHeight || (parseFloat(lcs.lineHeight) || 0);
+                    labelMarginBottom = parseFloat(lcs.marginBottom) || 0;
+                }
+                nextWrapper.style.height = `${boardHeight}px`;
+                nextWrapper.style.boxSizing = 'border-box';
+            }
+        }
+        catch (e) { }
+        const innerHeight = Math.max(0, boardHeight - padTop - padBottom - labelHeight - labelMarginBottom);
+        // compute cell size: allow up to BLOCK_SIZE per cell, but shrink so nextCount pieces fit vertically
+        const fitSize = innerHeight / (this.nextCount * 4);
+        const cellSize = Math.min(BLOCK_SIZE, fitSize);
+        this.nextCellSize = cellSize > 0 ? cellSize : BLOCK_SIZE;
+        // add horizontal side padding so previews have breathing room
+        const sidePadding = Math.max(4, Math.round(this.nextCellSize * 0.6));
+        this.nextSidePadding = sidePadding;
+        fitCanvasPx(this.nextCanvas, 4 * this.nextCellSize + sidePadding * 2, innerHeight);
+    }
     constructor(game) {
+        this.nextCount = 6; // configurable number of previews (1-6)
         this.boardCanvas = null;
         this.nextCanvas = null;
-        this.holdCanvas = null;
+        this.holdCanvas1 = null;
+        this.holdCanvas2 = null;
+        this.holdBox1El = null;
+        this.holdBox2El = null;
+        this.lastNotificationTs = 0;
+        this.holdFlashTimer1 = null;
+        this.holdFlashTimer2 = null;
+        this.nextSidePadding = 0;
         this.scoreEl = null;
         this.linesEl = null;
         this.levelEl = null;
@@ -30,11 +97,16 @@ export default class Renderer {
         this.restartBtn = null;
         this.goScoreEl = null;
         this.goLinesEl = null;
+        this.pauseOverlayEl = null;
+        this.pauseResumeBtn = null;
+        this.pauseRestartBtn = null;
         this.prevScore = 0;
         this.prevLines = 0;
         this.lastOverState = false;
         this.lineFlashExpiry = 0;
         this.scorePulseExpiry = 0;
+        // size (in CSS pixels) used to render each preview cell in the Next canvas
+        this.nextCellSize = BLOCK_SIZE;
         // animation state for score
         this.displayScore = 0;
         this.scoreAnimStart = 0;
@@ -56,7 +128,10 @@ export default class Renderer {
         try {
             this.boardCanvas = document.getElementById('board');
             this.nextCanvas = document.getElementById('next-canvas');
-            this.holdCanvas = document.getElementById('hold-canvas');
+            this.holdCanvas1 = document.getElementById('hold-canvas-1');
+            this.holdCanvas2 = document.getElementById('hold-canvas-2');
+            this.holdBox1El = document.getElementById('hold1');
+            this.holdBox2El = document.getElementById('hold2');
             this.scoreEl = document.getElementById('score');
             this.linesEl = document.getElementById('lines');
             this.levelEl = document.getElementById('level');
@@ -67,9 +142,27 @@ export default class Renderer {
             this.overlayMsgEl = document.getElementById('overlay-msg');
             // Render only the visible rows (hide the internal hidden rows)
             fitCanvas(this.boardCanvas, COLS, VISIBLE_ROWS);
-            // allocate more rows for next preview (show multiple next pieces stacked)
-            fitCanvas(this.nextCanvas, 4, 20);
-            fitCanvas(this.holdCanvas, 4, 4);
+            // allocate rows for next preview so its background box matches the board height.
+            if (this.boardCanvas && this.nextCanvas) {
+                try {
+                    this.resizeNextCanvas();
+                }
+                catch (e) { }
+            }
+            else {
+                fitCanvas(this.nextCanvas, 4, VISIBLE_ROWS);
+                this.nextCellSize = BLOCK_SIZE;
+            }
+            // make hold previews use the same per-block size as the board (4x4 grid * BLOCK_SIZE)
+            try {
+                fitCanvas(this.holdCanvas1, 4, 4);
+                fitCanvas(this.holdCanvas2, 4, 4);
+            }
+            catch (e) {
+                // fallback: ensure canvases are at least 4x4 logical cells
+                fitCanvas(this.holdCanvas1, 4, 4);
+                fitCanvas(this.holdCanvas2, 4, 4);
+            }
             // size the overlay area to match the board canvas so overlays align
             if (this.overlayEl && this.boardCanvas) {
                 const bw = this.boardCanvas.style.width || `${COLS * BLOCK_SIZE}px`;
@@ -82,6 +175,27 @@ export default class Renderer {
             this.restartBtn = document.getElementById('restart-btn');
             this.goScoreEl = document.getElementById('go-score');
             this.goLinesEl = document.getElementById('go-lines');
+            // pause overlay UI
+            this.pauseOverlayEl = document.getElementById('pause-overlay');
+            this.pauseResumeBtn = document.getElementById('pause-resume-btn');
+            this.pauseRestartBtn = document.getElementById('pause-restart-btn');
+            if (this.pauseResumeBtn)
+                this.pauseResumeBtn.addEventListener('click', () => { try {
+                    this.game.togglePause();
+                }
+                catch (e) { } });
+            if (this.pauseRestartBtn)
+                this.pauseRestartBtn.addEventListener('click', () => {
+                    try {
+                        if (window.input && typeof window.input.reset === 'function')
+                            window.input.reset();
+                    }
+                    catch (e) { }
+                    try {
+                        this.game.reset();
+                    }
+                    catch (e) { }
+                });
             if (this.restartBtn) {
                 this.restartBtn.addEventListener('click', () => {
                     if (window.input && typeof window.input.reset === 'function')
@@ -89,10 +203,14 @@ export default class Renderer {
                     this.game.reset();
                 });
             }
-            // keep overlay positions updated on resize
+            // keep overlay positions and next preview sizing updated on resize
             window.addEventListener('resize', () => {
                 try {
                     this.updateOverlayPositions();
+                }
+                catch (e) { }
+                try {
+                    this.resizeNextCanvas();
                 }
                 catch (e) { }
             });
@@ -110,6 +228,7 @@ export default class Renderer {
         }
     }
     updateOverlayPositions() {
+        var _a, _b, _c;
         if (!this.boardCanvas)
             return;
         const left = this.boardCanvas.offsetLeft + 'px';
@@ -129,6 +248,45 @@ export default class Renderer {
             this.gameOverEl.style.height = height;
             // center the inner box
             this.gameOverEl.style.display = this.game.getState().over ? 'flex' : 'none';
+            // ensure dimming state for game over
+            if (this.game.getState().over) {
+                try {
+                    this.boardCanvas.classList.add('dimmed');
+                }
+                catch (e) { }
+            }
+        }
+        // pause overlay: position and show when paused (but not when game over)
+        if (this.pauseOverlayEl) {
+            this.pauseOverlayEl.style.left = left;
+            this.pauseOverlayEl.style.top = top;
+            this.pauseOverlayEl.style.width = width;
+            this.pauseOverlayEl.style.height = height;
+            try {
+                const s = this.game.getState();
+                if (s.paused && !s.over) {
+                    this.pauseOverlayEl.classList.add('show');
+                    this.pauseOverlayEl.setAttribute('aria-hidden', 'false');
+                    try {
+                        (_a = this.pauseResumeBtn) === null || _a === void 0 ? void 0 : _a.focus();
+                    }
+                    catch (e) { }
+                    try {
+                        (_b = this.boardCanvas) === null || _b === void 0 ? void 0 : _b.classList.add('dimmed');
+                    }
+                    catch (e) { }
+                }
+                else {
+                    this.pauseOverlayEl.classList.remove('show');
+                    this.pauseOverlayEl.setAttribute('aria-hidden', 'true');
+                    try {
+                        if (!this.game.getState().over)
+                            (_c = this.boardCanvas) === null || _c === void 0 ? void 0 : _c.classList.remove('dimmed');
+                    }
+                    catch (e) { }
+                }
+            }
+            catch (e) { }
         }
     }
     clear(ctx, w, h) {
@@ -150,7 +308,8 @@ export default class Renderer {
         const state = this.game.getState();
         const boardCtx = this.boardCanvas ? this.boardCanvas.getContext('2d') : null;
         const nextCtx = this.nextCanvas ? this.nextCanvas.getContext('2d') : null;
-        const holdCtx = this.holdCanvas ? this.holdCanvas.getContext('2d') : null;
+        const holdCtx1 = this.holdCanvas1 ? this.holdCanvas1.getContext('2d') : null;
+        const holdCtx2 = this.holdCanvas2 ? this.holdCanvas2.getContext('2d') : null;
         const w = this.boardCanvas ? this.boardCanvas.width : 0;
         const h = this.boardCanvas ? this.boardCanvas.height : 0;
         // draw board if canvas available
@@ -232,40 +391,145 @@ export default class Renderer {
         // next (draw stacked 4x4 matrices)
         if (nextCtx && this.nextCanvas) {
             this.clear(nextCtx, this.nextCanvas.width, this.nextCanvas.height);
-            const next = state.next || [];
+            const next = (state.next || []).slice(0, this.nextCount);
+            const cell = this.nextCellSize;
+            const border = Math.max(1, Math.floor(cell * 0.06));
+            // center the group of previews vertically inside the canvas
+            const contentHeight = cell * (this.nextCount * 4);
+            const offsetY = Math.max(0, (this.nextCanvas.clientHeight - contentHeight) / 2);
+            const offsetX = this.nextSidePadding || 0;
             for (let i = 0; i < next.length; i++) {
                 const shape = next[i];
                 const mat = getRotationMatrix(shape, 0);
+                // compute bounding box of piece inside its 4x4 slot
+                let minC = mat[0].length, maxC = -1, minR = mat.length, maxR = -1;
+                for (let r = 0; r < mat.length; r++) {
+                    for (let c = 0; c < mat[r].length; c++) {
+                        if (!mat[r][c])
+                            continue;
+                        if (c < minC)
+                            minC = c;
+                        if (c > maxC)
+                            maxC = c;
+                        if (r < minR)
+                            minR = r;
+                        if (r > maxR)
+                            maxR = r;
+                    }
+                }
+                const widthBlocks = maxC >= minC ? (maxC - minC + 1) : 0;
+                const heightBlocks = maxR >= minR ? (maxR - minR + 1) : 0;
+                const leftPad = (4 - widthBlocks) / 2; // allow fractional pad for perfect centering
+                const topPad = (4 - heightBlocks) / 2;
                 for (let r = 0; r < mat.length; r++) {
                     for (let c = 0; c < mat[r].length; c++) {
                         if (!mat[r][c])
                             continue;
                         const color = COLORS[shape];
-                        // position each next-piece block in its 4-row slot
-                        const col = c;
-                        const row = i * 4 + r;
-                        const x = col * BLOCK_SIZE;
-                        const y = row * BLOCK_SIZE;
+                        // position each next-piece block in its 4-row slot using scaled cell size
+                        const colIndex = leftPad + (c - minC);
+                        const rowIndex = i * 4 + topPad + (r - minR);
+                        const x = offsetX + colIndex * cell;
+                        const y = offsetY + rowIndex * cell;
                         nextCtx.fillStyle = color;
-                        nextCtx.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+                        nextCtx.fillRect(x + border, y + border, Math.max(0, cell - border * 2), Math.max(0, cell - border * 2));
                     }
                 }
             }
         }
         // hold
-        if (holdCtx && this.holdCanvas) {
-            this.clear(holdCtx, this.holdCanvas.width, this.holdCanvas.height);
+        if (holdCtx1 && this.holdCanvas1) {
+            this.clear(holdCtx1, this.holdCanvas1.width, this.holdCanvas1.height);
             if (state.hold) {
                 const mat = getRotationMatrix(state.hold, 0);
+                // compute bounding box of piece inside 4x4 matrix
+                let minC = mat[0].length, maxC = -1, minR = mat.length, maxR = -1;
+                for (let r = 0; r < mat.length; r++) {
+                    for (let c = 0; c < mat[r].length; c++) {
+                        if (!mat[r][c])
+                            continue;
+                        if (c < minC)
+                            minC = c;
+                        if (c > maxC)
+                            maxC = c;
+                        if (r < minR)
+                            minR = r;
+                        if (r > maxR)
+                            maxR = r;
+                    }
+                }
+                const widthBlocks = maxC >= minC ? (maxC - minC + 1) : 0;
+                const heightBlocks = maxR >= minR ? (maxR - minR + 1) : 0;
+                // fractional pad allowed; ensure a small minimum pad so wide pieces (I horizontal)
+                // don't touch canvas edges. minPad is in block units.
+                const minPad = 0.35;
+                let leftPad = (4 - widthBlocks) / 2;
+                if (widthBlocks >= 4)
+                    leftPad = Math.max(leftPad, minPad);
+                let topPad = (4 - heightBlocks) / 2;
+                if (heightBlocks >= 4)
+                    topPad = Math.max(topPad, minPad);
+                const cell = this.holdCanvas1 ? (this.holdCanvas1.clientWidth / 4) : BLOCK_SIZE;
+                const borderCell = Math.max(1, Math.floor(cell * 0.06));
                 for (let r = 0; r < mat.length; r++) {
                     for (let c = 0; c < mat[r].length; c++) {
                         if (!mat[r][c])
                             continue;
                         const color = COLORS[state.hold];
-                        const x = c * BLOCK_SIZE;
-                        const y = r * BLOCK_SIZE;
-                        holdCtx.fillStyle = color;
-                        holdCtx.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+                        const colIndex = leftPad + (c - minC);
+                        const rowIndex = topPad + (r - minR);
+                        const x = colIndex * cell;
+                        const y = rowIndex * cell;
+                        holdCtx1.fillStyle = color;
+                        holdCtx1.fillRect(x + borderCell, y + borderCell, Math.max(0, cell - borderCell * 2), Math.max(0, cell - borderCell * 2));
+                    }
+                }
+            }
+        }
+        // second hold slot (placeholder until game supports two holds)
+        if (holdCtx2 && this.holdCanvas2) {
+            this.clear(holdCtx2, this.holdCanvas2.width, this.holdCanvas2.height);
+            // if game later exposes hold2, draw it here; for now leave empty
+            if (state.hold2) {
+                const mat2 = getRotationMatrix(state.hold2, 0);
+                // compute bounding box and center in 4x4
+                let minC2 = mat2[0].length, maxC2 = -1, minR2 = mat2.length, maxR2 = -1;
+                for (let r = 0; r < mat2.length; r++) {
+                    for (let c = 0; c < mat2[r].length; c++) {
+                        if (!mat2[r][c])
+                            continue;
+                        if (c < minC2)
+                            minC2 = c;
+                        if (c > maxC2)
+                            maxC2 = c;
+                        if (r < minR2)
+                            minR2 = r;
+                        if (r > maxR2)
+                            maxR2 = r;
+                    }
+                }
+                const widthBlocks2 = maxC2 >= minC2 ? (maxC2 - minC2 + 1) : 0;
+                const heightBlocks2 = maxR2 >= minR2 ? (maxR2 - minR2 + 1) : 0;
+                const minPad2 = 0.35;
+                let leftPad2 = (4 - widthBlocks2) / 2;
+                if (widthBlocks2 >= 4)
+                    leftPad2 = Math.max(leftPad2, minPad2);
+                let topPad2 = (4 - heightBlocks2) / 2;
+                if (heightBlocks2 >= 4)
+                    topPad2 = Math.max(topPad2, minPad2);
+                const cell2 = this.holdCanvas2 ? (this.holdCanvas2.clientWidth / 4) : BLOCK_SIZE;
+                const borderCell2 = Math.max(1, Math.floor(cell2 * 0.06));
+                for (let r = 0; r < mat2.length; r++) {
+                    for (let c = 0; c < mat2[r].length; c++) {
+                        if (!mat2[r][c])
+                            continue;
+                        const color = COLORS[state.hold2];
+                        const colIndex2 = leftPad2 + (c - minC2);
+                        const rowIndex2 = topPad2 + (r - minR2);
+                        const x = colIndex2 * cell2;
+                        const y = rowIndex2 * cell2;
+                        holdCtx2.fillStyle = color;
+                        holdCtx2.fillRect(x + borderCell2, y + borderCell2, Math.max(0, cell2 - borderCell2 * 2), Math.max(0, cell2 - borderCell2 * 2));
                     }
                 }
             }
@@ -316,10 +580,11 @@ export default class Renderer {
                 this.logEl.appendChild(li);
             }
         }
-        // overlay for T-Spin / Tetris
+        // overlay for T-Spin / Tetris and hold flash notifications
         if (this.overlayEl && this.overlayMsgEl) {
             const notifs = state.notifications || [];
-            const last = notifs.length ? notifs[notifs.length - 1].msg : null;
+            const lastNotif = notifs.length ? notifs[notifs.length - 1] : null;
+            const last = lastNotif ? lastNotif.msg : null;
             if (last && (last.includes('T-Spin') || last.includes('TETRIS'))) {
                 this.overlayMsgEl.textContent = last.toUpperCase();
                 this.overlayMsgEl.classList.remove('overlay-show');
@@ -327,6 +592,57 @@ export default class Renderer {
                 void this.overlayMsgEl.offsetWidth;
                 this.overlayMsgEl.classList.add('overlay-show');
             }
+            // flash hold boxes on hold notifications (only once per notification)
+            try {
+                if (lastNotif && lastNotif.ts && lastNotif.ts > this.lastNotificationTs) {
+                    this.lastNotificationTs = lastNotif.ts;
+                    if (last && last.startsWith('Hold1') && this.holdBox1El) {
+                        const cls = last.includes('保存') ? 'hold-flash-saved' : last.includes('交換') ? 'hold-flash-swapped' : 'hold-flash';
+                        try {
+                            this.holdBox1El.classList.remove('hold-flash-saved');
+                            this.holdBox1El.classList.remove('hold-flash-swapped');
+                            this.holdBox1El.classList.remove('hold-flash');
+                        }
+                        catch (e) { }
+                        this.holdBox1El.classList.add(cls);
+                        if (this.holdFlashTimer1) {
+                            clearTimeout(this.holdFlashTimer1);
+                            this.holdFlashTimer1 = null;
+                        }
+                        this.holdFlashTimer1 = window.setTimeout(() => { try {
+                            if (this.holdBox1El) {
+                                this.holdBox1El.classList.remove('hold-flash-saved');
+                                this.holdBox1El.classList.remove('hold-flash-swapped');
+                                this.holdBox1El.classList.remove('hold-flash');
+                            }
+                        }
+                        catch (e) { } ; this.holdFlashTimer1 = null; }, 40);
+                    }
+                    if (last && last.startsWith('Hold2') && this.holdBox2El) {
+                        const cls2 = last.includes('保存') ? 'hold-flash-saved' : last.includes('交換') ? 'hold-flash-swapped' : 'hold-flash';
+                        try {
+                            this.holdBox2El.classList.remove('hold-flash-saved');
+                            this.holdBox2El.classList.remove('hold-flash-swapped');
+                            this.holdBox2El.classList.remove('hold-flash');
+                        }
+                        catch (e) { }
+                        this.holdBox2El.classList.add(cls2);
+                        if (this.holdFlashTimer2) {
+                            clearTimeout(this.holdFlashTimer2);
+                            this.holdFlashTimer2 = null;
+                        }
+                        this.holdFlashTimer2 = window.setTimeout(() => { try {
+                            if (this.holdBox2El) {
+                                this.holdBox2El.classList.remove('hold-flash-saved');
+                                this.holdBox2El.classList.remove('hold-flash-swapped');
+                                this.holdBox2El.classList.remove('hold-flash');
+                            }
+                        }
+                        catch (e) { } ; this.holdFlashTimer2 = null; }, 40);
+                    }
+                }
+            }
+            catch (e) { }
         }
         // update overlay sizing and game-over visibility
         // update positions each frame (handles responsive layouts)
