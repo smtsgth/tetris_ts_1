@@ -13,8 +13,9 @@ export default class Input {
   private downTimer: number | null = null;
 
   // tuning (tunable values)
-  private DAS = 5; // ms before auto-repeat (default preset)
-  private ARR = 25;  // ms between auto-moves (default preset)
+  // Defaults tuned to typical DAS/ARR expectations used by tests/UI
+  private DAS = 170; // ms before auto-repeat (default preset)
+  private ARR = 30;  // ms between auto-moves (default preset)
   private SOFT_DROP_INTERVAL = 15; // ms (default preset)
 
   // Public accessors so UI can update tuning at runtime

@@ -17,8 +17,9 @@ export default class Input {
         this.rightArrTimer = null;
         this.downTimer = null;
         // tuning (tunable values)
-        this.DAS = 5; // ms before auto-repeat (default preset)
-        this.ARR = 25; // ms between auto-moves (default preset)
+        // Defaults tuned to typical DAS/ARR expectations used by tests/UI
+        this.DAS = 170; // ms before auto-repeat (default preset)
+        this.ARR = 30; // ms between auto-moves (default preset)
         this.SOFT_DROP_INTERVAL = 15; // ms (default preset)
         this.game = game;
         if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
