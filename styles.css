@@ -1,6 +1,7 @@
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; }
-:body { display:flex; align-items:center; justify-content:center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; background:#eef3f8; color:#111 }
+#bodyfix { }
+body { display:flex; align-items:flex-start; justify-content:flex-start; padding:20px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; background:#eef3f8; color:#111 }
 :root {
 	--frame-bg: #0f0f0f;
 	--frame-text: #ddd;
@@ -8,8 +9,17 @@ html,body { height:100%; margin:0; }
 	--inner-text: #fff;
 	--accent: #4facfe;
 }
-#app { display:flex; flex-direction:column; gap:12px; align-items:center; padding-top:32px }
-#game-area { display:flex; gap:22px; align-items:flex-start }
+#app { display:flex; flex-direction:column; gap:12px; align-items:stretch; padding-top:32px; max-width:1200px; margin:0 auto; width:100%; }
+#game-area {
+	display: grid;
+	grid-template-columns: 260px 380px 300px 1fr;
+	grid-auto-rows: min-content;
+	gap: 22px;
+	align-items: start;
+	width: 100%;
+	box-sizing: border-box;
+	position: relative;
+}
 #hud { display:flex; flex-direction:column; gap:12px }
 canvas { background: transparent; image-rendering: pixelated; }
 .label { color:#aaa; font-size:12px; margin-bottom:6px }
@@ -76,7 +86,7 @@ canvas { background: transparent; image-rendering: pixelated; }
 #left-hud { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:380px; margin-right:18px }
 
 /* Responsive: stack controls on narrow viewports (mobile / portrait) */
-@media (max-width: 900px) {
+@media (max-width: 680px) {
 	#game-area { flex-direction: column; gap:12px; align-items:center }
 	#left-controls, #left-hud { width:92%; max-width:720px }
 	#board { width:92%; height: auto; max-width:420px }
@@ -160,6 +170,8 @@ canvas { background: transparent; image-rendering: pixelated; }
 
 /* board container positioning */
 #game-area { position:relative }
+
+/* remove temporary debug overrides so layout can follow grid */
 
 /* Pause overlay specific styling */
 #pause-overlay .game-over-inner { min-width:260px; padding:16px 20px; background: rgba(18,18,20,0.96); }

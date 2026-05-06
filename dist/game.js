@@ -82,18 +82,29 @@ export default class Game {
     onChange(fn) { this.listeners.push(fn); }
     emit() { this.listeners.forEach(f => f()); }
     spawn() {
-        const t = this.nextQueue.shift() || this.bag.next();
-        this.nextQueue.push(this.bag.next());
-        this.current = new Piece(t);
-        this.current.x = 3;
-        this.current.y = -1;
+        // Peek next piece and only mutate the queue if spawn succeeds. This prevents the
+        // next preview from advancing when the spawn immediately results in game over.
+        const t = this.nextQueue.length ? this.nextQueue[0] : this.bag.next();
+        const newQueued = this.bag.next();
+        const candidate = new Piece(t);
+        candidate.x = 3;
+        candidate.y = -1;
+        // if candidate cannot be placed, set game over but do not advance the next queue
+        if (!this.isValidPos(candidate.matrix, candidate.x, candidate.y)) {
+            this.current = candidate;
+            this.over = true;
+            this.emit();
+            return;
+        }
+        // commit queue change: remove the consumed piece (if any) and push a new one
+        if (this.nextQueue.length)
+            this.nextQueue.shift();
+        this.nextQueue.push(newQueued);
+        this.current = candidate;
         // reset per-turn hold tracking for the newly spawned piece
         this.lastHoldSlot = null;
         this.lastHoldTimestamp = 0;
         this.holdUsedThisTurn = false;
-        if (!this.isValidPos(this.current.matrix, this.current.x, this.current.y)) {
-            this.over = true;
-        }
         this.emit();
     }
     isValidPos(matrix, x, y) {

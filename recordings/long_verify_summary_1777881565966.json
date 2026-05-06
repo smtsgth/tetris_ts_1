@@ -1,0 +1,159 @@
+{
+  "timestamp": 1777881244930,
+  "duration": 10000,
+  "repeats": 10,
+  "candidates": [
+    {
+      "params": {
+        "DEBOUNCE_MS": 300,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "runs": [
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881260229.json",
+          "applyCount": 473,
+          "holdCount": 219,
+          "skipDup": 190
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881277608.json",
+          "applyCount": 446,
+          "holdCount": 36,
+          "skipDup": 149
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881293930.json",
+          "applyCount": 464,
+          "holdCount": 85,
+          "skipDup": 165
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881309890.json",
+          "applyCount": 452,
+          "holdCount": 122,
+          "skipDup": 165
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881326076.json",
+          "applyCount": 433,
+          "holdCount": 0,
+          "skipDup": 127
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881343201.json",
+          "applyCount": 456,
+          "holdCount": 69,
+          "skipDup": 148
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881359445.json",
+          "applyCount": 439,
+          "holdCount": 127,
+          "skipDup": 147
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881375017.json",
+          "applyCount": 443,
+          "holdCount": 86,
+          "skipDup": 146
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881390737.json",
+          "applyCount": 430,
+          "holdCount": 0,
+          "skipDup": 118
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881407085.json",
+          "applyCount": 430,
+          "holdCount": 0,
+          "skipDup": 119
+        }
+      ],
+      "totals": {
+        "apply": 4466,
+        "hold": 744,
+        "skipped": 1474,
+        "success": 10,
+        "fail": 0
+      }
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 200,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "runs": [
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881422555.json",
+          "applyCount": 435,
+          "holdCount": 3,
+          "skipDup": 134
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881438771.json",
+          "applyCount": 445,
+          "holdCount": 128,
+          "skipDup": 160
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881455102.json",
+          "applyCount": 433,
+          "holdCount": 61,
+          "skipDup": 134
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881471489.json",
+          "applyCount": 454,
+          "holdCount": 90,
+          "skipDup": 160
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881487439.json",
+          "applyCount": 453,
+          "holdCount": 64,
+          "skipDup": 147
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881503674.json",
+          "applyCount": 432,
+          "holdCount": 11,
+          "skipDup": 119
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881520068.json",
+          "applyCount": 441,
+          "holdCount": 0,
+          "skipDup": 132
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881535251.json",
+          "applyCount": 425,
+          "holdCount": 0,
+          "skipDup": 121
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881550436.json",
+          "applyCount": 430,
+          "holdCount": 31,
+          "skipDup": 131
+        },
+        {
+          "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777881565490.json",
+          "applyCount": 458,
+          "holdCount": 67,
+          "skipDup": 156
+        }
+      ],
+      "totals": {
+        "apply": 4406,
+        "hold": 455,
+        "skipped": 1394,
+        "success": 10,
+        "fail": 0
+      }
+    }
+  ]
+}

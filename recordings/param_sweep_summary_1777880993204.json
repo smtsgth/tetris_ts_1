@@ -1,0 +1,138 @@
+{
+  "timestamp": 1777880993204,
+  "duration": 4000,
+  "results": [
+    {
+      "params": {
+        "DEBOUNCE_MS": 200,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880878431.json",
+      "applyCount": 127,
+      "holdCount": 37,
+      "skipDup": 51
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 200,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880888324.json",
+      "applyCount": 129,
+      "holdCount": 0,
+      "skipDup": 39
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 200,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880898540.json",
+      "applyCount": 132,
+      "holdCount": 0,
+      "skipDup": 40
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 200,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880908776.json",
+      "applyCount": 130,
+      "holdCount": 0,
+      "skipDup": 38
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 300,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880919673.json",
+      "applyCount": 122,
+      "holdCount": 63,
+      "skipDup": 53
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 300,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880929534.json",
+      "applyCount": 124,
+      "holdCount": 62,
+      "skipDup": 53
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 300,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880939794.json",
+      "applyCount": 127,
+      "holdCount": 45,
+      "skipDup": 52
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 300,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880949711.json",
+      "applyCount": 131,
+      "holdCount": 0,
+      "skipDup": 39
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 400,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880959907.json",
+      "applyCount": 123,
+      "holdCount": 64,
+      "skipDup": 53
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 400,
+        "DEBOUNCE_HOLD_MS": 500,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880971738.json",
+      "applyCount": 130,
+      "holdCount": 14,
+      "skipDup": 44
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 400,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 1
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880982248.json",
+      "applyCount": 137,
+      "holdCount": 0,
+      "skipDup": 43
+    },
+    {
+      "params": {
+        "DEBOUNCE_MS": 400,
+        "DEBOUNCE_HOLD_MS": 800,
+        "MAX_INTERMEDIATE_APPLIES_PER_REQ": 3
+      },
+      "saved": "C:\\dev_root\\tetris_ts_1\\recordings\\capture_one_1777880992439.json",
+      "applyCount": 128,
+      "holdCount": 70,
+      "skipDup": 57
+    }
+  ]
+}
