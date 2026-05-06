@@ -10,7 +10,7 @@ export default class AI {
         this.weightAgg = 6;
         this.weightHoles = 130;
         this.weightBump = 5;
-        this.holdPenalty = 320;
+        this.holdPenalty = 20;
         this.beamWidthBase = 4;
         this.perNodeLimit = 2;
         this.disableInputDuringRun = true;
@@ -19,16 +19,7 @@ export default class AI {
         this.activeWorkers = new Map();
         this.workerTimeouts = new Map();
         this.earlyFallbackTimers = new Map();
-        this.holdReleaseTimers = new Map();
         this.appliedFallbacks = new Map();
-        this.lastAppliedSig = null;
-        this.lastAppliedAction = null;
-        this.lastAppliedAt = 0;
-        this.DEBOUNCE_MS = 300;
-        this.lastAppliedPerReq = new Map();
-        this.intermediateApplyCounts = new Map();
-        this.DEBOUNCE_HOLD_MS = 800;
-        this.MAX_INTERMEDIATE_APPLIES_PER_REQ = 3;
         this.reqCounter = 0;
         this.pendingReqId = null;
         this.scheduleTimer = null;
@@ -47,15 +38,6 @@ export default class AI {
         this.WORKER_MIN_PROFILE_MS_FOR_RELAX = 60;
         this.APPLIED_FALLBACK_TTL_MS = 400; // ms - if applied fallback newer than this, prefer to defer instead of killing
         this.game = game;
-        try {
-            if (typeof (window).__autoCapturedLogs === 'undefined')
-                window.__autoCapturedLogs = [];
-            try {
-                window.__autoCapturedLogs.push('ai:constructed');
-            }
-            catch (e) { }
-        }
-        catch (e) { }
     }
     isEnabled() { return this.enabled; }
     setEnabled(v) {
@@ -126,7 +108,7 @@ export default class AI {
     getWeightHoles() { return this.weightHoles; }
     setWeightBump(n) { this.weightBump = Number(n) || 5; }
     getWeightBump() { return this.weightBump; }
-    setHoldPenalty(n) { this.holdPenalty = Number(n) || 320; }
+    setHoldPenalty(n) { this.holdPenalty = Number(n) || 20; }
     getHoldPenalty() { return this.holdPenalty; }
     setBeamWidthBase(n) { this.beamWidthBase = Math.max(1, Math.floor(Number(n) || 8)); }
     getBeamWidthBase() { return this.beamWidthBase; }
@@ -204,12 +186,242 @@ export default class AI {
             this.planOnce();
         }, interval);
     }
-        // create an inline worker (per-request) via Blob that accepts a small state snapshot and returns a trivial plan
-        createWorkerForRequest(reqId) {
-                                // use static worker file to avoid template-string injection issues
-                const url = 'worker_planner.js';
-                const w = new Worker(url);
-                return { worker: w, url };
+    // create an inline worker (per-request) via Blob that accepts a small state snapshot and returns a trivial plan
+    createWorkerForRequest() {
+        const code = `
+      (function(){
+        const COLS = 10;
+        const SHAPES = { I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], J:[[1,0,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], L:[[0,0,1,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], O:[[0,1,1,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]], S:[[0,1,1,0],[1,1,0,0],[0,0,0,0],[0,0,0,0]], T:[[0,1,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], Z:[[1,1,0,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]] };
+
+        function rotateCW(m){ const n=m.length; const res=Array.from({length:n},()=>Array(n).fill(0)); for(let r=0;r<n;r++) for(let c=0;c<n;c++) res[c][n-1-r]=m[r][c]; return res; }
+        // precompute rotations and bounding boxes to reduce per-iteration work
+        const PRE_ROTATIONS = {};
+        const ROT_BBOX = {};
+        for(const t in SHAPES){
+          const base = SHAPES[t].map(r=>r.slice());
+          const r0 = base;
+          const r1 = rotateCW(r0);
+          const r2 = rotateCW(r1);
+          const r3 = rotateCW(r2);
+          PRE_ROTATIONS[t] = [r0, r1, r2, r3];
+          ROT_BBOX[t] = PRE_ROTATIONS[t].map(mat => {
+            let minC = mat[0].length, maxC = -1;
+            for(let rr=0; rr<mat.length; rr++) for(let cc=0; cc<mat[rr].length; cc++) if(mat[rr][cc]){ if(cc<minC) minC=cc; if(cc>maxC) maxC=cc; }
+            return { minC, maxC };
+          });
+        }
+        function getRotationMatrix(type, rot){ const rr = ((rot%4)+4)%4; return PRE_ROTATIONS[type][rr]; }
+        function cloneBoard(b){ return b.map(r=>r.slice()); }
+
+        function canPlace(board, mat, x, y){ const rows=board.length; for(let r=0;r<mat.length;r++){ for(let c=0;c<mat[r].length;c++){ if(!mat[r][c]) continue; const bx=x+c, by=y+r; if(bx<0||bx>=COLS) return false; if(by>=rows) return false; if(by>=0 && board[by][bx]) return false; } } return true; }
+        function dropY(board, mat, x, startY){ let y=startY; while(canPlace(board, mat, x, y+1)) y++; return y; }
+        function placeAndClear(board, mat, x, y, type){ const b=cloneBoard(board); for(let r=0;r<mat.length;r++) for(let c=0;c<mat[r].length;c++) if(mat[r][c]){ const bx=x+c, by=y+r; if(by>=0&&by<b.length&&bx>=0&&bx<COLS) b[by][bx]=type; } let cleared=0; for(let rr=b.length-1; rr>=0; rr--){ if(b[rr].every(cell=>cell)){ b.splice(rr,1); b.unshift(Array(COLS).fill(null)); cleared++; rr++; } } return { board: b, cleared }; }
+
+        let W_LINES = 1000, W_AGG = 6, W_HOLES = 130, W_BUMP = 5, HOLD_PENALTY = 20;
+        function aggregateHeight(board){ const cols=COLS, rows=board.length, heights=Array(cols).fill(0); for(let c=0;c<cols;c++){ for(let r=0;r<rows;r++){ if(board[r][c]){ heights[c]=rows-r; break; } } } return heights; }
+        function countHoles(board){ const rows=board.length; let holes=0; for(let c=0;c<COLS;c++){ let seen=false; for(let r=0;r<rows;r++){ if(board[r][c]) seen=true; else if(seen) holes++; } } return holes; }
+        function bumpiness(heights){ let s=0; for(let i=0;i<heights.length-1;i++) s+=Math.abs(heights[i]-heights[i+1]); return s; }
+        function evaluate(board, linesCleared){ const heights=aggregateHeight(board); const agg=heights.reduce((a,b)=>a+b,0); const holes=countHoles(board); const bump=bumpiness(heights); return linesCleared*W_LINES - agg*W_AGG - holes*W_HOLES - bump*W_BUMP; }
+
+        function hashBoard(board){ // fast 32-bit FNV-1a-ish hash
+          let h = 2166136261 >>> 0;
+          for(let r=0;r<board.length;r++){
+            const row = board[r];
+            for(let c=0;c<row.length;c++){
+              const v = row[c] ? row[c].charCodeAt(0) : 46; // '.'
+              h ^= v;
+              h = Math.imul(h, 16777619) >>> 0;
+            }
+            h ^= 0x9e3779b1;
+            h = Math.imul(h, 16777619) >>> 0;
+          }
+          return (h >>> 0).toString(36);
+        }
+
+        const placementCache = new Map(); // boardHash|type -> placements (LRU via reinsert)
+        let placementCacheHits = 0, placementCacheMisses = 0, placementGeneratedCount = 0;
+        let TOP_K = 4; // can be tuned per-request via params.timeoutMs / fastMode
+
+        async function generatePlacementsForType(board, type, reqId, topKOverride){
+          const bHash = hashBoard(board);
+          const topKLocalKey = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
+          const key = bHash + '|' + type + '|' + String(topKLocalKey);
+          if(placementCache.has(key)){
+            // LRU: reinsert to mark as recently used
+            const v = placementCache.get(key);
+            placementCache.delete(key);
+            placementCache.set(key, v);
+            placementCacheHits++;
+            return v;
+          }
+          const placements=[];
+          let iterCount = 0;
+          for(let rot=0; rot<4; rot++){
+            const mat = PRE_ROTATIONS[type][rot];
+            const bbox = ROT_BBOX[type][rot];
+            const minX = -bbox.minC; const maxX = COLS - 1 - bbox.maxC;
+            for(let x=minX; x<=maxX; x++){
+              if(cancelled) return placements; // abort early if cancel requested
+              iterCount++;
+              // periodically report progress and yield so cancel messages are processed
+              if ((iterCount & 31) === 0) {
+                try { self.postMessage({ reqId: reqId, type: 'progress', progress: { piece: type, iterCount: iterCount } }); } catch (e) {}
+                await new Promise(r=>setTimeout(r,0));
+              }
+              const startY = -4;
+              if(!canPlace(board, mat, x, startY)) continue;
+              const y = dropY(board, mat, x, startY);
+              const res = placeAndClear(board, mat, x, y, type);
+              const score = evaluate(res.board, res.cleared);
+              placements.push({ x, rot, board: res.board, cleared: res.cleared, score });
+            }
+          }
+          // keep top placements per piece to reduce branching (tighter cutoff to speed search)
+          placements.sort((a,b)=>b.score - a.score);
+          const topKToUse = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
+          const top = placements.slice(0, topKToUse);
+          placementCache.set(key, top);
+          placementCacheMisses++;
+          placementGeneratedCount += top.length;
+          // limit cache size to avoid unbounded growth (evict oldest if large)
+          if(placementCache.size > 300) {
+            const it = placementCache.keys(); placementCache.delete(it.next().value);
+          }
+          return top;
+        }
+
+        let cancelled = false;
+        self.onmessage = function(e){
+          const msg = e.data || {};
+          // support cancel messages
+          if(msg && msg.type === 'cancel'){
+            cancelled = true; return;
+          }
+          cancelled = false;
+          const reqId = msg.reqId;
+          // send an immediate lightweight heartbeat so the caller can extend timeouts
+          try { self.postMessage({ reqId: reqId, type: 'progress', progress: { started: true } }); } catch(e) {}
+          const lookahead = (typeof msg.lookahead === 'number') ? msg.lookahead : 1;
+          const s = msg.state || {};
+          // accept tunable weights from caller
+          try {
+            const w = msg.weights || {};
+            W_LINES = Number(w.wLines || W_LINES);
+            W_AGG = Number(w.wAgg || W_AGG);
+            W_HOLES = Number(w.wHoles || W_HOLES);
+            W_BUMP = Number(w.wBump || W_BUMP);
+            HOLD_PENALTY = Number(w.holdPenalty || HOLD_PENALTY);
+          } catch (e) {}
+          const params = msg.params || {};
+          const beamWidthBaseMsg = Number(params.beamWidthBase) || 6;
+          let perNodeLimitMsg = Number(params.perNodeLimit) || 6;
+          let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 4;
+          // adapt work amount based on provided timeoutMs or fastMode hint
+          if (typeof params.timeoutMs === 'number') {
+            if (params.timeoutMs <= 700) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
+            else if (params.timeoutMs <= 1500) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 4); topKMsg = Math.min(topKMsg, 3); }
+          }
+          if (params.fastMode) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
+          (async function(){
+            try{
+              const sigObj = { next: (s.next||[]).slice(0, lookahead), hold: s.hold, current: s.current };
+              const sig = JSON.stringify(sigObj);
+              const beamWidthBase = beamWidthBaseMsg;
+              const perNodeLimit = perNodeLimitMsg;
+              TOP_K = topKMsg;
+              const root = { board: (s.board||[]).map(r=>r.slice()), current: s.current ? s.current.type : null, hold: s.hold || null, next: (s.next||[]).slice(), score: 0, firstAction: null };
+                let beam = [root];
+                const depthProfile = [];
+                const startTotal = Date.now();
+                for(let depth=0; depth<lookahead; depth++){
+                  if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                  const nextMap = new Map(); // key -> node (keep best score per key)
+                  const depthStart = Date.now();
+                  let expandedNodes = 0, placementsConsidered = 0;
+                  for(const node of beam){
+                    if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                    if(!node.current) continue;
+                    expandedNodes++;
+                    // dynamic per-node/topK adjustments based on depth and remaining budget
+                    const elapsedSoFarLocal = Date.now() - startTotal;
+                    const remainingBudgetLocal = (typeof params.timeoutMs === 'number' ? params.timeoutMs : 1000) - elapsedSoFarLocal;
+                    let perNodeLimitLocal = perNodeLimitMsg;
+                    let topKLocal = topKMsg;
+                    if (params.adaptive) {
+                      const depthFactorLocal = 1 - (depth / Math.max(1, lookahead));
+                      perNodeLimitLocal = Math.max(1, Math.min(perNodeLimitMsg, Math.ceil(perNodeLimitMsg * (0.25 + 0.75 * depthFactorLocal))));
+                      topKLocal = Math.max(1, Math.min(topKMsg, Math.ceil(topKMsg * (0.25 + 0.75 * depthFactorLocal))));
+                      if (remainingBudgetLocal < 500) { perNodeLimitLocal = Math.min(perNodeLimitLocal, 1); topKLocal = Math.min(topKLocal, 1); }
+                    }
+                    const placementsAll = await generatePlacementsForType(node.board, node.current, reqId, topKLocal);
+                    const placements = placementsAll.slice(0, perNodeLimitLocal);
+                    placementsConsidered += placements.length;
+                    for(const p of placements){
+                      if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                      const newNext = node.next.slice();
+                      const newCur = newNext.length ? newNext.shift() : null;
+                      const newKey = hashBoard(p.board) + '|' + (newCur||'null') + '|' + (node.hold||'null') + '|' + newNext.join(',');
+                      const newScore = node.score + p.score;
+                      const existing = nextMap.get(newKey);
+                      const nd = { board: p.board, current: newCur, hold: node.hold, next: newNext, score: newScore, firstAction: node.firstAction || { type: 'place', x: p.x, rot: p.rot } };
+                      if(!existing || existing.score < nd.score) nextMap.set(newKey, nd);
+                    }
+                    // try hold
+                    if(node.hold !== null || (node.next && node.next.length>0)){
+                      const swappedHold = node.hold === null ? node.current : node.hold;
+                      const newCurType = node.hold === null ? (node.next && node.next.length ? node.next[0] : null) : node.hold;
+                      const newNextAfterHold = node.hold === null ? node.next.slice(1) : node.next.slice();
+                      if(newCurType){
+                      const placements2All = await generatePlacementsForType(node.board, newCurType, reqId, topKLocal);
+                      const placements2 = placements2All.slice(0, perNodeLimitLocal);
+                      placementsConsidered += placements2.length;
+                      for(const p of placements2){
+                          if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                          const newKey = hashBoard(p.board) + '|' + (newNextAfterHold.length? newNextAfterHold[0] : 'null') + '|' + (swappedHold||'null') + '|' + newNextAfterHold.join(',');
+                          const newScore = node.score + p.score - HOLD_PENALTY; // small penalty for hold
+                          const nd2 = { board: p.board, current: newNextAfterHold.length? newNextAfterHold.shift() : null, hold: swappedHold, next: newNextAfterHold, score: newScore, firstAction: node.firstAction || { type: 'hold', slot: 1 } };
+                          const existing = nextMap.get(newKey);
+                          if(!existing || existing.score < nd2.score) nextMap.set(newKey, nd2);
+                        }
+                      }
+                    }
+                  }
+                  // build new beam from nextMap values, sorted by score
+                  const nextArr = Array.from(nextMap.values());
+                  if(nextArr.length === 0) break;
+                  nextArr.sort((a,b)=>b.score - a.score);
+                  const beamWidth = Math.max(4, Math.floor(beamWidthBase / (1 + Math.floor(depth/2))));
+                  beam = nextArr.slice(0, beamWidth);
+                  const depthEnd = Date.now();
+                  depthProfile.push({ depth, expandedNodes, placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart });
+                  // send a lightweight progress heartbeat so the caller can extend timeouts
+                  try { self.postMessage({ reqId: reqId, type: 'progress', progress: { depth: depth, expandedNodes: expandedNodes, placementsConsidered: placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart } }); } catch(e) {}
+                  // also publish an intermediate best-so-far plan so the main thread can use early results
+                  try {
+                    const bestNow = (beam && beam.length ? beam[0] : null) || root;
+                    let _planNow = { action: 'harddrop' };
+                    if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'place') _planNow = { action: 'place', x: bestNow.firstAction.x, rotation: bestNow.firstAction.rot };
+                    else if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'hold') _planNow = { action: 'hold', slot: 1 };
+                    try { self.postMessage({ reqId: reqId, plan: _planNow, score: bestNow ? bestNow.score : 0, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal }, intermediate: true }); } catch (e) {}
+                  } catch (e) {}
+                  // yield to event loop so cancel messages are processed
+                  await new Promise(r=>setTimeout(r,0));
+                }
+              beam.sort((a,b)=>b.score - a.score);
+              const best = beam[0] || root;
+              let plan = { action: 'harddrop' };
+              if(best.firstAction && best.firstAction.type === 'place') plan = { action: 'place', x: best.firstAction.x, rotation: best.firstAction.rot };
+              else if(best.firstAction && best.firstAction.type === 'hold') plan = { action: 'hold', slot: 1 };
+              const bestScore = best.score || 0;
+              try { self.postMessage({ reqId: reqId, plan: plan, score: bestScore, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e) { try{ self.postMessage({ reqId: reqId, error: String(e) }); } catch(e){} }
+            } catch(err){ try{ self.postMessage({ reqId: reqId, error: String(err) }); } catch(e){} }
+          })();
+      })();
+    `;
+        const blob = new Blob([code], { type: 'text/javascript' });
+        const url = URL.createObjectURL(blob);
+        const w = new Worker(url);
+        return { worker: w, url };
     }
     onWorkerMessage(msg) {
         try {
@@ -223,17 +435,6 @@ export default class AI {
                     clearTimeout(ef);
                 }
                 this.earlyFallbackTimers.delete(reqId);
-            }
-            catch (e) { }
-            try {
-                const hr = this.holdReleaseTimers.get(reqId);
-                if (hr) {
-                    try { clearTimeout(hr); }
-                    catch (e) { }
-                    this.holdReleaseTimers.delete(reqId);
-                }
-                try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); }
-                catch (e) { }
             }
             catch (e) { }
             // progress/heartbeat messages from worker - extend timeout and log, do not treat as final
@@ -310,7 +511,6 @@ export default class AI {
                                     window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
                             }
                             catch (e) { }
-                            try { if (typeof reqId !== 'undefined' && fallback) fallback.reqId = reqId; } catch (e) {}
                             this.handlePlanResult(fallback);
                         }
                         catch (e) {
@@ -335,7 +535,6 @@ export default class AI {
             if (msg && msg.plan && msg.intermediate) {
                 try {
                     const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
-                    try { result.reqId = reqId; } catch (e) { }
                     this.logs.push(`req:${reqId} worker-intermediate sig:${result.sig} score:${result.score}`);
                     // compare against any applied fallback and possibly overwrite
                     if (this.appliedFallbacks.has(reqId)) {
@@ -355,16 +554,7 @@ export default class AI {
                             catch (e) {
                                 resultSigObj = null;
                             }
-                            const getCurType = (o) => {
-                                if (!o)
-                                    return null;
-                                if (typeof o.current === 'string')
-                                    return o.current;
-                                if (o.current && typeof o.current === 'object')
-                                    return (o.current.type || null);
-                                return null;
-                            };
-                            const sameInitialPiece = getCurType(appliedSigObj) && getCurType(resultSigObj) && getCurType(appliedSigObj) === getCurType(resultSigObj);
+                            const sameInitialPiece = appliedSigObj && resultSigObj && appliedSigObj.current && resultSigObj.current && appliedSigObj.current === resultSigObj.current;
                             const workerScore = (typeof result.score === 'number') ? result.score : 0;
                             const appliedScore = (typeof applied.score === 'number') ? applied.score : 0;
                             try {
@@ -377,7 +567,6 @@ export default class AI {
                             const allowRelax = workerTime >= minMs && (workerScore >= (appliedScore - delta));
                             if (sameInitialPiece && (workerScore > appliedScore || allowRelax)) {
                                 this.logs.push(`req:${reqId} intermediate-overwrite applied (workerScore=${workerScore} appliedScore=${appliedScore} time=${workerTime}ms)`);
-                                try { if (result) { result.reqId = reqId; result.intermediate = true; } } catch (e) {}
                                 this.handlePlanResult(result);
                                 // update appliedFallbacks to reflect this applied intermediate result
                                 try {
@@ -402,16 +591,7 @@ export default class AI {
                             this.logs.push(`req:${reqId} intermediate result applied (no prior fallback)`);
                         }
                         catch (e) { }
-                        try {
-                            if (result && result.plan && result.plan.action === 'hold' && this.holdReleaseTimers && this.holdReleaseTimers.has(reqId)) {
-                                try { this.logs.push(`req:${reqId} skipping intermediate hold (holds suppressed)`); } catch (e) { }
-                            }
-                            else {
-                                try { if (result) { result.reqId = reqId; result.intermediate = true; } } catch (e) {}
-                                this.handlePlanResult(result);
-                            }
-                        }
-                        catch (e) { }
+                        this.handlePlanResult(result);
                     }
                     // re-arm per-worker timeout so worker isn't prematurely considered timed out
                     try {
@@ -475,7 +655,6 @@ export default class AI {
                                         window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
                                 }
                                 catch (e) { }
-                                try { if (typeof reqId !== 'undefined' && fallback) fallback.reqId = reqId; } catch (e) {}
                                 this.handlePlanResult(fallback);
                             }
                             catch (e) {
@@ -528,9 +707,7 @@ export default class AI {
                 this.logs.push(`req:${reqId} worker-cancelled`);
                 const state = this.game.getState();
                 const fallback = this.syncFallbackPlan(state);
-                try { if (fallback) fallback.reqId = reqId; } catch (e) { }
-                                try { if (typeof reqId !== 'undefined' && fallback) fallback.reqId = reqId; } catch (e) {}
-                                this.handlePlanResult(fallback);
+                this.handlePlanResult(fallback);
                 return;
             }
             if (msg.error) {
@@ -538,13 +715,10 @@ export default class AI {
                 // fallback
                 const state = this.game.getState();
                 const fallback = this.syncFallbackPlan(state);
-                try { if (fallback) fallback.reqId = reqId; } catch (e) { }
-                  try { if (typeof reqId !== 'undefined' && fallback) fallback.reqId = reqId; } catch (e) {}
-                  this.handlePlanResult(fallback);
+                this.handlePlanResult(fallback);
                 return;
             }
             const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
-            try { result.reqId = reqId; } catch (e) { }
             this.logs.push(`req:${reqId} worker-result sig:${result.sig} score:${result.score}`);
             if (msg.profile) {
                 try {
@@ -582,16 +756,7 @@ export default class AI {
                     catch (e) {
                         resultSigObj = null;
                     }
-                    const getCurType = (o) => {
-                        if (!o)
-                            return null;
-                        if (typeof o.current === 'string')
-                            return o.current;
-                        if (o.current && typeof o.current === 'object')
-                            return (o.current.type || null);
-                        return null;
-                    };
-                    const sameInitialPiece = getCurType(appliedSigObj) && getCurType(resultSigObj) && getCurType(appliedSigObj) === getCurType(resultSigObj);
+                    const sameInitialPiece = appliedSigObj && resultSigObj && appliedSigObj.current && resultSigObj.current && appliedSigObj.current === resultSigObj.current;
                     const workerScore = (typeof result.score === 'number') ? result.score : 0;
                     const appliedScore = (typeof applied.score === 'number') ? applied.score : 0;
                     try {
@@ -635,7 +800,6 @@ export default class AI {
                     this.logs.push(`req:${reqId} repeated-sig threshold reached, using sync fallback`);
                     const state = this.game.getState();
                     const fallback = this.syncFallbackPlan(state);
-                    try { if (typeof reqId !== 'undefined' && fallback) fallback.reqId = reqId; } catch (e) {}
                     this.handlePlanResult(fallback);
                 }
                 else {
@@ -782,7 +946,7 @@ export default class AI {
                 }
             }
             catch (e) { }
-            const created = this.createWorkerForRequest(reqId);
+            const created = this.createWorkerForRequest();
             const payload = {
                 reqId,
                 lookahead: this.lookahead,
@@ -799,77 +963,12 @@ export default class AI {
             const w = created.worker;
             const url = created.url;
             this.activeWorkers.set(reqId, { worker: w, url });
-            try {
-                if (typeof (window).__autoCapturedLogs === 'undefined')
-                    window.__autoCapturedLogs = [];
-            }
-            catch (e) { }
-            try {
-                (w).onmessageerror = (ev) => {
-                    try {
-                        const rawErr = `req:${reqId} worker-onmessageerror`;
-                        this.logs.push(rawErr);
-                        try {
-                            if (window.__autoCapturedLogs)
-                                window.__autoCapturedLogs.push(rawErr);
-                        }
-                        catch (e) { }
-                    }
-                    catch (e) { }
-                };
-            }
-            catch (e) { }
-            try {
-                w.onerror = (ev) => {
-                    try {
-                        const msg = ev && ev.message ? ev.message : String(ev);
-                        const loc = ev && (ev.filename || ev.lineno || ev.colno) ? ` ${ev.filename || ''}:${ev.lineno || ''}:${ev.colno || ''}` : '';
-                        const rawErr = `req:${reqId} worker-error-evt:${msg}${loc}`;
-                        this.logs.push(rawErr);
-                        try {
-                            if (window.__autoCapturedLogs)
-                                window.__autoCapturedLogs.push(rawErr);
-                        }
-                        catch (e) { }
-                    }
-                    catch (e) { }
-                };
-            }
-            catch (e) { }
             w.onmessage = (ev) => {
                 try {
                     try {
-                        const d = ev && ev.data ? ev.data : {};
-                        const t = (d && d.type) ? d.type : (d && d.plan ? 'plan' : (d && d.progress ? 'progress' : 'unknown'));
-                        const planFlag = !!d.plan;
-                        const sigFlag = !!d.sig;
-                        const interm = !!d.intermediate;
-                        const raw = `req:${reqId} raw-msg:type=${t}|plan=${planFlag}|sig=${sigFlag}|intermediate=${interm}`;
-                        this.logs.push(raw);
-                        try {
-                            if (window.__autoCapturedLogs)
-                                window.__autoCapturedLogs.push(raw);
-                        }
-                        catch (e) { }
-                        try {
-                            try {
-                                const doc = window.document;
-                                if (doc) {
-                                    let el = doc.getElementById('__worker_debug');
-                                    if (!el) { el = doc.createElement('pre'); el.id = '__worker_debug'; el.style.display = 'none'; doc.body && doc.body.appendChild(el); }
-                                    try { el.textContent += raw + '\n'; } catch (e) {}
-                                }
-                            }
-                            catch (e) { }
-                        }
-                        catch (e) { }
+                        this.logs.push(`raw-msg:${reqId}:${JSON.stringify(ev.data)}`);
                     }
-                    catch (e) {
-                        try {
-                            this.logs.push(`raw-msg:${reqId}:<unserializable>`);
-                        }
-                        catch (_) { }
-                    }
+                    catch (e) { }
                     this.onWorkerMessage(ev.data);
                 }
                 catch (err) {
@@ -1135,7 +1234,7 @@ export default class AI {
         catch (e) { }
         const ret = new Promise((resolve) => {
             try {
-                const created = this.createWorkerForRequest(payload.reqId);
+                const created = this.createWorkerForRequest();
                 const w = created.worker;
                 const url = created.url;
                 let done = false;
@@ -1442,58 +1541,6 @@ export default class AI {
     handlePlanResult(result) {
         try {
             this.logs.push(`apply plan sig:${result.sig} action:${result.plan && result.plan.action}`);
-            // debounce identical plans/actions; hold-specific window and intermediate-apply limits
-            try {
-                const now = Date.now();
-                const sig = result && result.sig ? result.sig : null;
-                const action = result && result.plan && result.plan.action ? result.plan.action : null;
-                const rid = result && result.reqId ? String(result.reqId) : null;
-                const isIntermediate = !!(result && result.intermediate);
-                const debounceWindow = (action === 'hold') ? this.DEBOUNCE_HOLD_MS : this.DEBOUNCE_MS;
-
-                if (isIntermediate && rid) {
-                    try {
-                        const cnt = (this.intermediateApplyCounts.get(rid) || 0) + 1;
-                        this.intermediateApplyCounts.set(rid, cnt);
-                        if (cnt > this.MAX_INTERMEDIATE_APPLIES_PER_REQ) {
-                            try { this.logs.push(`req:${rid} skipping intermediate (applied ${cnt} > ${this.MAX_INTERMEDIATE_APPLIES_PER_REQ})`); } catch (e) { }
-                            try { this.scheduleNext(); } catch (e) { }
-                            return;
-                        }
-                    } catch (e) { }
-                }
-
-                if (rid) {
-                    try {
-                        const rec = this.lastAppliedPerReq.get(rid);
-                        const limit = debounceWindow;
-                        if (rec && sig && rec.sig === sig && (now - rec.at) < limit) {
-                            try { this.logs.push(`req:${rid} skipping duplicate sig within ${limit}ms`); } catch (e) { }
-                            try { this.scheduleNext(); } catch (e) { }
-                            return;
-                        }
-                        if (rec && action && rec.action === action && (now - rec.at) < limit) {
-                            try { this.logs.push(`req:${rid} skipping duplicate action ${action} within ${limit}ms`); } catch (e) { }
-                            try { this.scheduleNext(); } catch (e) { }
-                            return;
-                        }
-                    }
-                    catch (e) { }
-                }
-
-                const globalLimit = debounceWindow;
-                if (sig && this.lastAppliedSig === sig && (now - this.lastAppliedAt) < globalLimit) {
-                    try { this.logs.push(`skipping duplicate sig within ${globalLimit}ms`); } catch (e) { }
-                    try { this.scheduleNext(); } catch (e) { }
-                    return;
-                }
-                if (action && this.lastAppliedAction === action && (now - this.lastAppliedAt) < globalLimit) {
-                    try { this.logs.push(`skipping duplicate action ${action} within ${globalLimit}ms`); } catch (e) { }
-                    try { this.scheduleNext(); } catch (e) { }
-                    return;
-                }
-            }
-            catch (e) { }
             // perform a simple action
             try {
                 if (result.plan && result.plan.action === 'harddrop') {
@@ -1561,29 +1608,6 @@ export default class AI {
             }
             catch (er) { }
         }
-        // record last applied plan/action timestamp for debounce
-        try {
-            try {
-                const act = result && result.plan && result.plan.action ? result.plan.action : null;
-                const sig = result && result.sig ? result.sig : null;
-                const now = Date.now();
-                if (sig)
-                    this.lastAppliedSig = sig;
-                if (act)
-                    this.lastAppliedAction = act;
-                this.lastAppliedAt = now;
-                try {
-                    const rid = result && result.reqId ? String(result.reqId) : null;
-                    if (rid) {
-                        this.lastAppliedPerReq.set(rid, { sig: sig, action: act, at: now });
-                        try { if (rid && !(result && result.intermediate)) { this.intermediateApplyCounts.delete(rid); } } catch (e) {}
-                    }
-                }
-                catch (e) { }
-            }
-            catch (e) { }
-        }
-        catch (e) { }
         // schedule next planning cycle
         try {
             this.scheduleNext();

@@ -12,8 +12,7 @@ export default class AI {
   private weightAgg = 6;
   private weightHoles = 130;
   private weightBump = 5;
-  private holdPenalty = 80;
-  
+  private holdPenalty = 20;
   private beamWidthBase = 4;
   private perNodeLimit = 2;
   private disableInputDuringRun = true;
@@ -23,16 +22,7 @@ export default class AI {
   private activeWorkers: Map<string, { worker: Worker; url: string }> = new Map();
   private workerTimeouts: Map<string, any> = new Map();
   private earlyFallbackTimers: Map<string, any> = new Map();
-  private holdReleaseTimers: Map<string, any> = new Map();
   private appliedFallbacks: Map<string, { sig: string; score: number; parsedSig?: any; snapshot?: any; appliedAt?: number }> = new Map();
-  private lastAppliedSig: string | null = null;
-  private lastAppliedAction: string | null = null;
-  private lastAppliedAt: number = 0;
-  private DEBOUNCE_MS = 300; // ms - skip re-applying identical sig/action within this window
-  private lastAppliedPerReq: Map<string, { sig: string | null; action: string | null; at: number }> = new Map();
-  private intermediateApplyCounts: Map<string, number> = new Map();
-  private DEBOUNCE_HOLD_MS = 800; // ms - stricter debounce for holds
-  private MAX_INTERMEDIATE_APPLIES_PER_REQ = 3;
   private reqCounter = 0;
   private pendingReqId: string | null = null;
   
@@ -45,7 +35,7 @@ export default class AI {
   private probeInProgress: boolean = false;
   private maxConcurrentWorkers: number = 8; // maximum concurrent background workers
   // early fallback timers are tracked per-request in earlyFallbackTimers map
-  private EARLY_FALLBACK_MS = 100; // ms (testing 100ms)
+  private EARLY_FALLBACK_MS = 50; // ms (testing 100ms)
   // when a synchronous fallback has been applied, allow a worker result
   // to overwrite it if the worker did meaningful work or slightly better score
   private WORKER_OVERWRITE_SCORE_DELTA = 2;
@@ -54,12 +44,6 @@ export default class AI {
 
   constructor(game: Game) {
     this.game = game;
-    // ensure auto-capture buffer exists on the page so external test harnesses
-    // (Puppeteer) can reliably read worker/raw logs even if emitted early
-    try {
-      if (typeof (window as any).__autoCapturedLogs === 'undefined') (window as any).__autoCapturedLogs = [];
-      try { (window as any).__autoCapturedLogs.push('ai:constructed'); } catch (e) {}
-    } catch (e) {}
   }
 
   isEnabled(): boolean { return this.enabled; }
@@ -165,40 +149,38 @@ export default class AI {
   }
 
   // create an inline worker (per-request) via Blob that accepts a small state snapshot and returns a trivial plan
-  private createWorkerForRequest(reqId: string): { worker: Worker; url: string } {
+  private createWorkerForRequest(): { worker: Worker; url: string } {
     const code = `
-      try {
-        (w).onmessageerror = (ev) => {
-          try {
-            const rawErr = `req:${reqId} worker-onmessageerror`;
-            this.logs.push(rawErr);
-            try {
-              if (window.__autoCapturedLogs)
-                window.__autoCapturedLogs.push(rawErr);
-            }
-            catch (e) { }
-          }
-          catch (e) { }
-        };
-      }
-      catch (e) { }
-      try {
-        w.onerror = (ev) => {
-          try {
-            const msg = ev && ev.message ? ev.message : String(ev);
-            const loc = ev && (ev.filename || ev.lineno || ev.colno) ? ` ${ev.filename || ''}:${ev.lineno || ''}:${ev.colno || ''}` : '';
-            const rawErr = `req:${reqId} worker-error-evt:${msg}${loc}`;
-            this.logs.push(rawErr);
-            try {
-              if (window.__autoCapturedLogs)
-                window.__autoCapturedLogs.push(rawErr);
-            }
-            catch (e) { }
-          }
-          catch (e) { }
-        };
-      }
-      catch (e) { }
+      (function(){
+        const COLS = 10;
+        const SHAPES = { I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], J:[[1,0,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], L:[[0,0,1,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], O:[[0,1,1,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]], S:[[0,1,1,0],[1,1,0,0],[0,0,0,0],[0,0,0,0]], T:[[0,1,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], Z:[[1,1,0,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]] };
+
+        function rotateCW(m){ const n=m.length; const res=Array.from({length:n},()=>Array(n).fill(0)); for(let r=0;r<n;r++) for(let c=0;c<n;c++) res[c][n-1-r]=m[r][c]; return res; }
+        // precompute rotations and bounding boxes to reduce per-iteration work
+        const PRE_ROTATIONS = {};
+        const ROT_BBOX = {};
+        for(const t in SHAPES){
+          const base = SHAPES[t].map(r=>r.slice());
+          const r0 = base;
+          const r1 = rotateCW(r0);
+          const r2 = rotateCW(r1);
+          const r3 = rotateCW(r2);
+          PRE_ROTATIONS[t] = [r0, r1, r2, r3];
+          ROT_BBOX[t] = PRE_ROTATIONS[t].map(mat => {
+            let minC = mat[0].length, maxC = -1;
+            for(let rr=0; rr<mat.length; rr++) for(let cc=0; cc<mat[rr].length; cc++) if(mat[rr][cc]){ if(cc<minC) minC=cc; if(cc>maxC) maxC=cc; }
+            return { minC, maxC };
+          });
+        }
+        function getRotationMatrix(type, rot){ const rr = ((rot%4)+4)%4; return PRE_ROTATIONS[type][rr]; }
+        function cloneBoard(b){ return b.map(r=>r.slice()); }
+
+        function canPlace(board, mat, x, y){ const rows=board.length; for(let r=0;r<mat.length;r++){ for(let c=0;c<mat[r].length;c++){ if(!mat[r][c]) continue; const bx=x+c, by=y+r; if(bx<0||bx>=COLS) return false; if(by>=rows) return false; if(by>=0 && board[by][bx]) return false; } } return true; }
+        function dropY(board, mat, x, startY){ let y=startY; while(canPlace(board, mat, x, y+1)) y++; return y; }
+        function placeAndClear(board, mat, x, y, type){ const b=cloneBoard(board); for(let r=0;r<mat.length;r++) for(let c=0;c<mat[r].length;c++) if(mat[r][c]){ const bx=x+c, by=y+r; if(by>=0&&by<b.length&&bx>=0&&bx<COLS) b[by][bx]=type; } let cleared=0; for(let rr=b.length-1; rr>=0; rr--){ if(b[rr].every(cell=>cell)){ b.splice(rr,1); b.unshift(Array(COLS).fill(null)); cleared++; rr++; } } return { board: b, cleared }; }
+
+        let W_LINES = 1000, W_AGG = 6, W_HOLES = 130, W_BUMP = 5, HOLD_PENALTY = 20;
+        function aggregateHeight(board){ const cols=COLS, rows=board.length, heights=Array(cols).fill(0); for(let c=0;c<cols;c++){ for(let r=0;r<rows;r++){ if(board[r][c]){ heights[c]=rows-r; break; } } } return heights; }
         function countHoles(board){ const rows=board.length; let holes=0; for(let c=0;c<COLS;c++){ let seen=false; for(let r=0;r<rows;r++){ if(board[r][c]) seen=true; else if(seen) holes++; } } return holes; }
         function bumpiness(heights){ let s=0; for(let i=0;i<heights.length-1;i++) s+=Math.abs(heights[i]-heights[i+1]); return s; }
         function evaluate(board, linesCleared){ const heights=aggregateHeight(board); const agg=heights.reduce((a,b)=>a+b,0); const holes=countHoles(board); const bump=bumpiness(heights); return linesCleared*W_LINES - agg*W_AGG - holes*W_HOLES - bump*W_BUMP; }
@@ -238,16 +220,241 @@ export default class AI {
           let iterCount = 0;
           for(let rot=0; rot<4; rot++){
             const mat = PRE_ROTATIONS[type][rot];
-            // prefer a static worker file to avoid template-string injection issues
-            const url = 'worker_planner.js';
-            const w = new Worker(url);
-            return { worker: w, url };
-                if (!o) return null;
-                if (typeof o.current === 'string') return o.current;
-                if (o.current && typeof o.current === 'object') return (o.current.type || null);
-                return null;
-              };
-              const sameInitialPiece = getCurType(appliedSigObj) && getCurType(resultSigObj) && getCurType(appliedSigObj) === getCurType(resultSigObj);
+            const bbox = ROT_BBOX[type][rot];
+            const minX = -bbox.minC; const maxX = COLS - 1 - bbox.maxC;
+            for(let x=minX; x<=maxX; x++){
+              if(cancelled) return placements; // abort early if cancel requested
+              iterCount++;
+              // periodically report progress and yield so cancel messages are processed
+              if ((iterCount & 31) === 0) {
+                try { self.postMessage({ reqId: reqId, type: 'progress', progress: { piece: type, iterCount: iterCount } }); } catch (e) {}
+                await new Promise(r=>setTimeout(r,0));
+              }
+              const startY = -4;
+              if(!canPlace(board, mat, x, startY)) continue;
+              const y = dropY(board, mat, x, startY);
+              const res = placeAndClear(board, mat, x, y, type);
+              const score = evaluate(res.board, res.cleared);
+              placements.push({ x, rot, board: res.board, cleared: res.cleared, score });
+            }
+          }
+          // keep top placements per piece to reduce branching (tighter cutoff to speed search)
+          placements.sort((a,b)=>b.score - a.score);
+          const topKToUse = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
+          const top = placements.slice(0, topKToUse);
+          placementCache.set(key, top);
+          placementCacheMisses++;
+          placementGeneratedCount += top.length;
+          // limit cache size to avoid unbounded growth (evict oldest if large)
+          if(placementCache.size > 300) {
+            const it = placementCache.keys(); placementCache.delete(it.next().value);
+          }
+          return top;
+        }
+
+        let cancelled = false;
+        self.onmessage = function(e){
+          const msg = e.data || {};
+          // support cancel messages
+          if(msg && msg.type === 'cancel'){
+            cancelled = true; return;
+          }
+          cancelled = false;
+          const reqId = msg.reqId;
+          // send an immediate lightweight heartbeat so the caller can extend timeouts
+          try { self.postMessage({ reqId: reqId, type: 'progress', progress: { started: true } }); } catch(e) {}
+          const lookahead = (typeof msg.lookahead === 'number') ? msg.lookahead : 1;
+          const s = msg.state || {};
+          // accept tunable weights from caller
+          try {
+            const w = msg.weights || {};
+            W_LINES = Number(w.wLines || W_LINES);
+            W_AGG = Number(w.wAgg || W_AGG);
+            W_HOLES = Number(w.wHoles || W_HOLES);
+            W_BUMP = Number(w.wBump || W_BUMP);
+            HOLD_PENALTY = Number(w.holdPenalty || HOLD_PENALTY);
+          } catch (e) {}
+          const params = msg.params || {};
+          const beamWidthBaseMsg = Number(params.beamWidthBase) || 6;
+          let perNodeLimitMsg = Number(params.perNodeLimit) || 6;
+          let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 4;
+          // adapt work amount based on provided timeoutMs or fastMode hint
+          if (typeof params.timeoutMs === 'number') {
+            if (params.timeoutMs <= 700) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
+            else if (params.timeoutMs <= 1500) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 4); topKMsg = Math.min(topKMsg, 3); }
+          }
+          if (params.fastMode) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
+          (async function(){
+            try{
+              const sigObj = { next: (s.next||[]).slice(0, lookahead), hold: s.hold, current: s.current };
+              const sig = JSON.stringify(sigObj);
+              const beamWidthBase = beamWidthBaseMsg;
+              const perNodeLimit = perNodeLimitMsg;
+              TOP_K = topKMsg;
+              const root = { board: (s.board||[]).map(r=>r.slice()), current: s.current ? s.current.type : null, hold: s.hold || null, next: (s.next||[]).slice(), score: 0, firstAction: null };
+                let beam = [root];
+                const depthProfile = [];
+                const startTotal = Date.now();
+                for(let depth=0; depth<lookahead; depth++){
+                  if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                  const nextMap = new Map(); // key -> node (keep best score per key)
+                  const depthStart = Date.now();
+                  let expandedNodes = 0, placementsConsidered = 0;
+                  for(const node of beam){
+                    if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                    if(!node.current) continue;
+                    expandedNodes++;
+                    // dynamic per-node/topK adjustments based on depth and remaining budget
+                    const elapsedSoFarLocal = Date.now() - startTotal;
+                    const remainingBudgetLocal = (typeof params.timeoutMs === 'number' ? params.timeoutMs : 1000) - elapsedSoFarLocal;
+                    let perNodeLimitLocal = perNodeLimitMsg;
+                    let topKLocal = topKMsg;
+                    if (params.adaptive) {
+                      const depthFactorLocal = 1 - (depth / Math.max(1, lookahead));
+                      perNodeLimitLocal = Math.max(1, Math.min(perNodeLimitMsg, Math.ceil(perNodeLimitMsg * (0.25 + 0.75 * depthFactorLocal))));
+                      topKLocal = Math.max(1, Math.min(topKMsg, Math.ceil(topKMsg * (0.25 + 0.75 * depthFactorLocal))));
+                      if (remainingBudgetLocal < 500) { perNodeLimitLocal = Math.min(perNodeLimitLocal, 1); topKLocal = Math.min(topKLocal, 1); }
+                    }
+                    const placementsAll = await generatePlacementsForType(node.board, node.current, reqId, topKLocal);
+                    const placements = placementsAll.slice(0, perNodeLimitLocal);
+                    placementsConsidered += placements.length;
+                    for(const p of placements){
+                      if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                      const newNext = node.next.slice();
+                      const newCur = newNext.length ? newNext.shift() : null;
+                      const newKey = hashBoard(p.board) + '|' + (newCur||'null') + '|' + (node.hold||'null') + '|' + newNext.join(',');
+                      const newScore = node.score + p.score;
+                      const existing = nextMap.get(newKey);
+                      const nd = { board: p.board, current: newCur, hold: node.hold, next: newNext, score: newScore, firstAction: node.firstAction || { type: 'place', x: p.x, rot: p.rot } };
+                      if(!existing || existing.score < nd.score) nextMap.set(newKey, nd);
+                    }
+                    // try hold
+                    if(node.hold !== null || (node.next && node.next.length>0)){
+                      const swappedHold = node.hold === null ? node.current : node.hold;
+                      const newCurType = node.hold === null ? (node.next && node.next.length ? node.next[0] : null) : node.hold;
+                      const newNextAfterHold = node.hold === null ? node.next.slice(1) : node.next.slice();
+                      if(newCurType){
+                      const placements2All = await generatePlacementsForType(node.board, newCurType, reqId, topKLocal);
+                      const placements2 = placements2All.slice(0, perNodeLimitLocal);
+                      placementsConsidered += placements2.length;
+                      for(const p of placements2){
+                          if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
+                          const newKey = hashBoard(p.board) + '|' + (newNextAfterHold.length? newNextAfterHold[0] : 'null') + '|' + (swappedHold||'null') + '|' + newNextAfterHold.join(',');
+                          const newScore = node.score + p.score - HOLD_PENALTY; // small penalty for hold
+                          const nd2 = { board: p.board, current: newNextAfterHold.length? newNextAfterHold.shift() : null, hold: swappedHold, next: newNextAfterHold, score: newScore, firstAction: node.firstAction || { type: 'hold', slot: 1 } };
+                          const existing = nextMap.get(newKey);
+                          if(!existing || existing.score < nd2.score) nextMap.set(newKey, nd2);
+                        }
+                      }
+                    }
+                  }
+                  // build new beam from nextMap values, sorted by score
+                  const nextArr = Array.from(nextMap.values());
+                  if(nextArr.length === 0) break;
+                  nextArr.sort((a,b)=>b.score - a.score);
+                  const beamWidth = Math.max(4, Math.floor(beamWidthBase / (1 + Math.floor(depth/2))));
+                  beam = nextArr.slice(0, beamWidth);
+                  const depthEnd = Date.now();
+                  depthProfile.push({ depth, expandedNodes, placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart });
+                  // send a lightweight progress heartbeat so the caller can extend timeouts
+                  try { self.postMessage({ reqId: reqId, type: 'progress', progress: { depth: depth, expandedNodes: expandedNodes, placementsConsidered: placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart } }); } catch(e) {}
+                  // also publish an intermediate best-so-far plan so the main thread can use early results
+                  try {
+                    const bestNow = (beam && beam.length ? beam[0] : null) || root;
+                    let _planNow = { action: 'harddrop' };
+                    if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'place') _planNow = { action: 'place', x: bestNow.firstAction.x, rotation: bestNow.firstAction.rot };
+                    else if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'hold') _planNow = { action: 'hold', slot: 1 };
+                    try { self.postMessage({ reqId: reqId, plan: _planNow, score: bestNow ? bestNow.score : 0, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal }, intermediate: true }); } catch (e) {}
+                  } catch (e) {}
+                  // yield to event loop so cancel messages are processed
+                  await new Promise(r=>setTimeout(r,0));
+                }
+              beam.sort((a,b)=>b.score - a.score);
+              const best = beam[0] || root;
+              let plan = { action: 'harddrop' };
+              if(best.firstAction && best.firstAction.type === 'place') plan = { action: 'place', x: best.firstAction.x, rotation: best.firstAction.rot };
+              else if(best.firstAction && best.firstAction.type === 'hold') plan = { action: 'hold', slot: 1 };
+              const bestScore = best.score || 0;
+              try { self.postMessage({ reqId: reqId, plan: plan, score: bestScore, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e) { try{ self.postMessage({ reqId: reqId, error: String(e) }); } catch(e){} }
+            } catch(err){ try{ self.postMessage({ reqId: reqId, error: String(err) }); } catch(e){} }
+          })();
+      })();
+    `;
+    const blob = new Blob([code], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url);
+    return { worker: w, url };
+  }
+
+  private onWorkerMessage(msg: any) {
+    try {
+      if (!msg || !msg.reqId) return;
+      const reqId = msg.reqId;
+      // clear any pending early-fallback timer for this request
+      try { const ef = this.earlyFallbackTimers.get(reqId); if (ef) { clearTimeout(ef); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
+      // progress/heartbeat messages from worker - extend timeout and log, do not treat as final
+      if (msg.type === 'progress' || msg.type === 'heartbeat') {
+        try {
+          // only accept progress from known active workers
+          if (!this.activeWorkers.has(reqId)) return;
+          const p = msg.progress || msg.heartbeat || {};
+          this.logs.push(`req:${reqId} progress depth:${p.depth} exp:${p.expandedNodes} placed:${p.placementsConsidered} t:${p.timeMs}`);
+        } catch (e) {}
+        // re-arm per-worker plan timeout so worker isn't prematurely considered timed out
+        try {
+          const prev = this.workerTimeouts.get(reqId);
+          if (prev) { try { clearTimeout(prev); } catch (e) {} }
+          this.workerTimeouts.set(reqId, setTimeout(() => {
+            try {
+              if (!this.activeWorkers.has(reqId)) return;
+              this.logs.push(`req:${reqId} timeout, performing sync fallback`);
+              // if a fallback already applied, just terminate this worker
+              if (this.appliedFallbacks.has(reqId)) {
+                try {
+                  const info = this.activeWorkers.get(reqId);
+                  if (info) { try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {} }
+                } catch (e) {}
+                try { this.terminateActiveWorker(reqId); } catch (e) {}
+                this.workerTimeouts.delete(reqId);
+                return;
+              }
+              try {
+                const info = this.activeWorkers.get(reqId);
+                if (info) {
+                  try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {}
+                  setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150);
+                }
+              } catch (e) {}
+              try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+              const state = this.game.getState();
+              const fallback = this.syncFallbackPlan(state);
+              try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
+              try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+              this.handlePlanResult(fallback);
+            } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch(_) {} }
+            try { this.workerTimeouts.delete(reqId); } catch (e) {}
+          }, this.PLAN_TIMEOUT_MS));
+        } catch (e) {}
+        return;
+      }
+
+      // ignore responses from unknown workers
+      if (!this.activeWorkers.has(reqId)) return;
+
+      // If worker sent an intermediate (best-so-far) plan, handle it without terminating the worker.
+      if (msg && msg.plan && msg.intermediate) {
+        try {
+          const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
+          this.logs.push(`req:${reqId} worker-intermediate sig:${result.sig} score:${result.score}`);
+          // compare against any applied fallback and possibly overwrite
+          if (this.appliedFallbacks.has(reqId)) {
+            try {
+              const applied = this.appliedFallbacks.get(reqId) as any;
+              let appliedSigObj: any = null;
+              try { appliedSigObj = applied && applied.parsedSig ? applied.parsedSig : (applied && applied.sig ? JSON.parse(applied.sig) : null); } catch (e) { appliedSigObj = null; }
+              let resultSigObj: any = null;
+              try { resultSigObj = result && result.sig ? JSON.parse(result.sig) : null; } catch (e) { resultSigObj = null; }
+              const sameInitialPiece = appliedSigObj && resultSigObj && appliedSigObj.current && resultSigObj.current && appliedSigObj.current === resultSigObj.current;
               const workerScore = (typeof result.score === 'number') ? result.score : 0;
               const appliedScore = (typeof applied.score === 'number') ? applied.score : 0;
               try { this.logs.push(`req:${reqId} intermediate worker vs applied: workerScore=${workerScore} appliedScore=${appliedScore} sameInitialPiece=${sameInitialPiece}`); } catch (e) {}
@@ -257,7 +464,6 @@ export default class AI {
               const allowRelax = workerTime >= minMs && (workerScore >= (appliedScore - delta));
               if (sameInitialPiece && (workerScore > appliedScore || allowRelax)) {
                 this.logs.push(`req:${reqId} intermediate-overwrite applied (workerScore=${workerScore} appliedScore=${appliedScore} time=${workerTime}ms)`);
-                try { if (result) { (result as any).reqId = reqId; (result as any).intermediate = true; } } catch (e) {}
                 this.handlePlanResult(result);
                 // update appliedFallbacks to reflect this applied intermediate result
                 try { this.appliedFallbacks.set(reqId, { sig: result.sig, score: workerScore, parsedSig: (result.sig ? JSON.parse(result.sig) : null), snapshot: applied.snapshot, appliedAt: Date.now() }); } catch (e) {}
@@ -268,14 +474,7 @@ export default class AI {
           } else {
             // no applied fallback: treat intermediate as usable plan
             try { this.logs.push(`req:${reqId} intermediate result applied (no prior fallback)`); } catch (e) {}
-            try {
-              if (result && result.plan && result.plan.action === 'hold' && this.holdReleaseTimers && this.holdReleaseTimers.has(reqId)) {
-                try { this.logs.push(`req:${reqId} skipping intermediate hold (holds suppressed)`); } catch (e) {}
-                } else {
-                try { if (result) { (result as any).reqId = reqId; (result as any).intermediate = true; } } catch (e) {}
-                this.handlePlanResult(result);
-              }
-            } catch (e) {}
+            this.handlePlanResult(result);
           }
           // re-arm per-worker timeout so worker isn't prematurely considered timed out
           try {
@@ -293,17 +492,9 @@ export default class AI {
                 }
                 try { const info = this.activeWorkers.get(reqId); if (info) { try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {} setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150); } } catch (e) {}
                 try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-                try {
-                  const prev = this.holdReleaseTimers.get(reqId);
-                  if (prev) { try { clearTimeout(prev); } catch (e) {} this.holdReleaseTimers.delete(reqId); }
-                  this.holdReleaseTimers.set(reqId, setTimeout(() => {
-                    try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-                    try { this.holdReleaseTimers.delete(reqId); } catch (e) {}
-                  }, this.APPLIED_FALLBACK_TTL_MS));
-                } catch (e) {}
                 const fallback = this.syncFallbackPlan(this.game.getState());
+                try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
                 try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
-                try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
                 this.handlePlanResult(fallback);
               } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
               try { this.workerTimeouts.delete(reqId); } catch (e) {}
@@ -316,11 +507,6 @@ export default class AI {
       // final/cancel/error messages: clear per-worker timeout and early-fallback timers and process normally
       try { const t = this.workerTimeouts.get(reqId); if (t) { clearTimeout(t); } this.workerTimeouts.delete(reqId); } catch (e) {}
       try { const ef = this.earlyFallbackTimers.get(reqId); if (ef) { clearTimeout(ef); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
-      try {
-        const hr = this.holdReleaseTimers.get(reqId);
-        if (hr) { try { clearTimeout(hr); } catch (e) {} this.holdReleaseTimers.delete(reqId); }
-        try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-      } catch (e) {}
       if (this.pendingReqId === reqId) this.pendingReqId = null;
       // cleanup any active worker for this request
       try { this.terminateActiveWorker(reqId); } catch (e) {}
@@ -328,7 +514,6 @@ export default class AI {
         this.logs.push(`req:${reqId} worker-cancelled`);
         const state = this.game.getState();
         const fallback = this.syncFallbackPlan(state);
-        try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
         this.handlePlanResult(fallback);
         return;
       }
@@ -337,12 +522,10 @@ export default class AI {
         // fallback
         const state = this.game.getState();
         const fallback = this.syncFallbackPlan(state);
-        try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
         this.handlePlanResult(fallback);
         return;
       }
       const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
-      try { (result as any).reqId = reqId; } catch (e) {}
       this.logs.push(`req:${reqId} worker-result sig:${result.sig} score:${result.score}`);
       if (msg.profile) {
         try {
@@ -370,13 +553,7 @@ export default class AI {
           try { appliedSigObj = applied && applied.parsedSig ? applied.parsedSig : (applied && applied.sig ? JSON.parse(applied.sig) : null); } catch (e) { appliedSigObj = null; }
           let resultSigObj: any = null;
           try { resultSigObj = result && result.sig ? JSON.parse(result.sig) : null; } catch (e) { resultSigObj = null; }
-          const getCurType = (o:any) => {
-            if (!o) return null;
-            if (typeof o.current === 'string') return o.current;
-            if (o.current && typeof o.current === 'object') return (o.current.type || null);
-            return null;
-          };
-          const sameInitialPiece = getCurType(appliedSigObj) && getCurType(resultSigObj) && getCurType(appliedSigObj) === getCurType(resultSigObj);
+          const sameInitialPiece = appliedSigObj && resultSigObj && appliedSigObj.current && resultSigObj.current && appliedSigObj.current === resultSigObj.current;
           const workerScore = (typeof result.score === 'number') ? result.score : 0;
           const appliedScore = (typeof applied.score === 'number') ? applied.score : 0;
           try { this.logs.push(`req:${reqId} worker vs applied: workerScore=${workerScore} appliedScore=${appliedScore} sameInitialPiece=${sameInitialPiece} workerSig:${result.sig} appliedSig:${applied.sig}`); } catch (e) {}
@@ -403,7 +580,6 @@ export default class AI {
           this.logs.push(`req:${reqId} repeated-sig threshold reached, using sync fallback`);
           const state = this.game.getState();
           const fallback = this.syncFallbackPlan(state);
-          try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
           this.handlePlanResult(fallback);
         } else {
           this.handlePlanResult(result);
@@ -483,7 +659,7 @@ export default class AI {
         }
       } catch (e) {}
 
-      const created = this.createWorkerForRequest(reqId);
+      const created = this.createWorkerForRequest();
       const payload = {
         reqId,
         lookahead: this.lookahead,
@@ -500,49 +676,9 @@ export default class AI {
       const w = created.worker;
       const url = created.url;
       this.activeWorkers.set(reqId, { worker: w, url });
-      // ensure page capture buffer exists (defensive) and attach worker error handlers
-      try {
-        if (typeof (window as any).__autoCapturedLogs === 'undefined') (window as any).__autoCapturedLogs = [];
-      } catch (e) {}
-      try {
-        (w as any).onmessageerror = (ev: any) => {
-          try {
-            const rawErr = `req:${reqId} worker-onmessageerror`;
-            this.logs.push(rawErr);
-            try { if ((window as any).__autoCapturedLogs) (window as any).__autoCapturedLogs.push(rawErr); } catch (e) {}
-          } catch (e) {}
-        };
-      } catch (e) {}
-      try {
-        w.onerror = (ev: any) => {
-          try {
-            const msg = ev && ev.message ? ev.message : String(ev);
-            const rawErr = `req:${reqId} worker-error-evt:${msg}`;
-            this.logs.push(rawErr);
-            try { if ((window as any).__autoCapturedLogs) (window as any).__autoCapturedLogs.push(rawErr); } catch (e) {}
-          } catch (e) {}
-        };
-      } catch (e) {}
       w.onmessage = (ev: any) => {
         try {
-          try {
-            const d = ev && ev.data ? ev.data : {};
-            const t = (d && d.type) ? d.type : (d && d.plan ? 'plan' : (d && d.progress ? 'progress' : 'unknown'));
-            const planFlag = !!d.plan;
-            const sigFlag = !!d.sig;
-            const interm = !!d.intermediate;
-            const raw = `req:${reqId} raw-msg:type=${t}|plan=${planFlag}|sig=${sigFlag}|intermediate=${interm}`;
-            this.logs.push(raw);
-            try { if ((window as any).__autoCapturedLogs) (window as any).__autoCapturedLogs.push(raw); } catch (e) {}
-                  try {
-                    const doc: any = (window as any).document;
-                    if (doc) {
-                      let el = doc.getElementById('__worker_debug');
-                      if (!el) { el = doc.createElement('pre'); el.id = '__worker_debug'; el.style.display = 'none'; doc.body && doc.body.appendChild(el); }
-                      try { el.textContent += raw + '\n'; } catch (e) {}
-                    }
-                  } catch (e) {}
-          } catch (e) { try { this.logs.push(`raw-msg:${reqId}:<unserializable>`); } catch(_){} }
+          try { this.logs.push(`raw-msg:${reqId}:${JSON.stringify(ev.data)}`); } catch (e) {}
           this.onWorkerMessage(ev.data);
         } catch (err) { try { this.logs.push('onmessage handling failed: '+String(err)); } catch(_){} }
       };
@@ -550,7 +686,6 @@ export default class AI {
         this.logs.push(`req:${reqId} postMessage failed: ${String(e)}`);
         try { this.terminateActiveWorker(reqId); } catch (er) {}
         const fallback = this.syncFallbackPlan(state);
-        try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
         this.handlePlanResult(fallback);
         return;
       }
@@ -580,17 +715,9 @@ export default class AI {
             }
           } catch (e) {}
           try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-          try {
-            const prev = this.holdReleaseTimers.get(reqId);
-            if (prev) { try { clearTimeout(prev); } catch (e) {} this.holdReleaseTimers.delete(reqId); }
-            this.holdReleaseTimers.set(reqId, setTimeout(() => {
-              try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-              try { this.holdReleaseTimers.delete(reqId); } catch (e) {}
-            }, this.APPLIED_FALLBACK_TTL_MS));
-          } catch (e) {}
           const fallback = this.syncFallbackPlan(state);
+          try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
           try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
-          try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
           this.handlePlanResult(fallback);
         } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
         try { this.workerTimeouts.delete(reqId); } catch (e) {}
@@ -613,16 +740,8 @@ export default class AI {
             this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
           } catch (e) {}
           try { this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`); } catch (e) {}
-          try {
-            const prev = this.holdReleaseTimers.get(reqId);
-            if (prev) { try { clearTimeout(prev); } catch (e) {} this.holdReleaseTimers.delete(reqId); }
-            this.holdReleaseTimers.set(reqId, setTimeout(() => {
-              try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-              try { this.holdReleaseTimers.delete(reqId); } catch (e) {}
-            }, this.APPLIED_FALLBACK_TTL_MS));
-          } catch (e) {}
+          try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
           try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
-          try { if (fallback) (fallback as any).reqId = reqId; } catch (e) {}
           this.handlePlanResult(fallback);
         } catch (e) { try { this.logs.push('early-fallback error: ' + String(e)); } catch (er) {} }
         try { const t = this.earlyFallbackTimers.get(reqId); if (t) { clearTimeout(t); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
@@ -684,7 +803,7 @@ export default class AI {
 
         const ret = new Promise((resolve) => {
       try {
-        const created = this.createWorkerForRequest(payload.reqId);
+        const created = this.createWorkerForRequest();
         const w = created.worker;
         const url = created.url;
         let done = false;
@@ -861,59 +980,6 @@ export default class AI {
   private handlePlanResult(result: any) {
     try {
       this.logs.push(`apply plan sig:${result.sig} action:${result.plan && result.plan.action}`);
-      // Debounce identical plans/actions to avoid rapid repeated holds/placements
-      try {
-        const now = Date.now();
-        const sig = result && result.sig ? result.sig : null;
-        const action = result && result.plan && result.plan.action ? result.plan.action : null;
-        const rid = result && result.reqId ? String(result.reqId) : null;
-        const isIntermediate = !!(result && (result as any).intermediate);
-        const debounceWindow = (action === 'hold') ? this.DEBOUNCE_HOLD_MS : this.DEBOUNCE_MS;
-
-        // If this is an intermediate result, limit how many intermediate applies we accept per req
-        if (isIntermediate && rid) {
-          try {
-            const cnt = (this.intermediateApplyCounts.get(rid) || 0) + 1;
-            this.intermediateApplyCounts.set(rid, cnt);
-            if (cnt > this.MAX_INTERMEDIATE_APPLIES_PER_REQ) {
-              try { this.logs.push(`req:${rid} skipping intermediate (applied ${cnt} > ${this.MAX_INTERMEDIATE_APPLIES_PER_REQ})`); } catch (e) {}
-              try { this.scheduleNext(); } catch (e) {}
-              return;
-            }
-          } catch (e) {}
-        }
-
-        // Prefer reqId-scoped debounce if available
-        if (rid) {
-          try {
-            const rec = this.lastAppliedPerReq.get(rid);
-            const limit = debounceWindow;
-            if (rec && sig && rec.sig === sig && (now - rec.at) < limit) {
-              try { this.logs.push(`req:${rid} skipping duplicate sig within ${limit}ms`); } catch (e) {}
-              try { this.scheduleNext(); } catch (e) {}
-              return;
-            }
-            if (rec && action && rec.action === action && (now - rec.at) < limit) {
-              try { this.logs.push(`req:${rid} skipping duplicate action ${action} within ${limit}ms`); } catch (e) {}
-              try { this.scheduleNext(); } catch (e) {}
-              return;
-            }
-          } catch (e) {}
-        }
-
-        // Fallback to global debounce
-        const globalLimit = debounceWindow;
-        if (sig && this.lastAppliedSig === sig && (now - this.lastAppliedAt) < globalLimit) {
-          try { this.logs.push(`skipping duplicate sig within ${globalLimit}ms`); } catch (e) {}
-          try { this.scheduleNext(); } catch (e) {}
-          return;
-        }
-        if (action && this.lastAppliedAction === action && (now - this.lastAppliedAt) < globalLimit) {
-          try { this.logs.push(`skipping duplicate action ${action} within ${globalLimit}ms`); } catch (e) {}
-          try { this.scheduleNext(); } catch (e) {}
-          return;
-        }
-      } catch (e) {}
       // perform a simple action
       try {
         if (result.plan && result.plan.action === 'harddrop') {
@@ -954,24 +1020,6 @@ export default class AI {
     } catch (e) {
       try { this.logs.push('handlePlanResult error: ' + String(e)); } catch (er) {}
     }
-    // record last applied plan/action timestamp for debounce
-    try {
-      try {
-        const act = result && result.plan && result.plan.action ? result.plan.action : null;
-        const sig = result && result.sig ? result.sig : null;
-        const now = Date.now();
-        if (sig) this.lastAppliedSig = sig;
-        if (act) this.lastAppliedAction = act;
-        this.lastAppliedAt = now;
-        try {
-          const rid = result && result.reqId ? String(result.reqId) : null;
-          if (rid) {
-            this.lastAppliedPerReq.set(rid, { sig: sig, action: act, at: now });
-              try { if (!(result && (result as any).intermediate)) { this.intermediateApplyCounts.delete(rid); } } catch (e) {}
-          }
-        } catch (e) {}
-      } catch (e) {}
-    } catch (e) {}
     // schedule next planning cycle
     try { this.scheduleNext(); } catch (e) {}
   }
