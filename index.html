@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tetris TS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="game-area">
+      <!-- left-most column: Input settings and Color palettes -->
+      <div id="left-controls" role="region" aria-label="Settings and palettes">
+        <div id="input-settings" role="group" aria-labelledby="input-settings-label">
+          <div class="label" id="input-settings-label">入力設定</div>
+          <div class="setting-row">
+            <label for="das-range">DAS (ms)</label>
+            <input id="das-range" type="range" min="0" max="500" step="5" aria-label="DAS スライダー" role="slider" aria-valuemin="0" aria-valuemax="500" aria-valuenow="5" aria-describedby="das-number">
+            <input id="das-number" type="number" min="0" max="500" step="5" aria-label="DAS ミリ秒">
+          </div>
+          <div class="setting-row">
+            <label for="arr-range">ARR (ms)</label>
+            <input id="arr-range" type="range" min="0" max="200" step="5" aria-label="ARR スライダー" role="slider" aria-valuemin="0" aria-valuemax="200" aria-valuenow="25" aria-describedby="arr-number">
+            <input id="arr-number" type="number" min="0" max="200" step="5" aria-label="ARR ミリ秒">
+          </div>
+          <div class="setting-row">
+            <label for="preset-select">Preset</label>
+            <select id="preset-select" aria-label="設定プリセット">
+              <option value="default">Default</option>
+              <option value="fast">Fast</option>
+              <option value="competitive">Competitive</option>
+              <option value="marathon">Marathon</option>
+              <option value="slow">Slow</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="soft-range">Soft Drop (ms)</label>
+            <input id="soft-range" type="range" min="1" max="30" step="1" aria-label="Soft Drop スライダー" role="slider" aria-valuemin="1" aria-valuemax="30" aria-valuenow="15" aria-describedby="soft-number">
+            <input id="soft-number" type="number" min="1" max="30" step="1" aria-label="Soft Drop 間隔 ミリ秒">
+          </div>
+          <div class="setting-row">
+            <label for="next-count-range">Next Count</label>
+            <input id="next-count-range" type="range" min="1" max="6" step="1" aria-label="Next 表示数スライダー" role="slider" aria-valuemin="1" aria-valuemax="6" aria-valuenow="6">
+            <input id="next-count-number" type="number" min="1" max="6" step="1" aria-label="Next 表示数">
+          </div>
+          <div class="setting-actions">
+            <button id="reset-settings">設定初期化</button>
+          </div>
+        </div>
+        <div id="palette-panel" aria-label="Color palettes" style="margin-top:8px">
+          <div class="label">配色パネル</div>
+          <div class="setting-row"><label>Frame</label><div id="palette-outer-panel" class="palette-row" aria-label="枠外配色"></div></div>
+          <div class="setting-row"><label>Inner</label><div id="palette-inner-panel" class="palette-row" aria-label="枠内配色"></div></div>
+        </div>
+      </div>
+
+      <!-- second column: Hold slots and Info -->
+      <div id="left-hud" role="region" aria-label="Game controls">
+        <div id="holds">
+          <div id="hold1" class="hold-box"><div class="label">Hold 1 <kbd>C</kbd></div><canvas id="hold-canvas-1" width="120" height="120" aria-label="Hold slot 1"></canvas></div>
+          <div id="hold2" class="hold-box"><div class="label">Hold 2 <kbd>V</kbd></div><canvas id="hold-canvas-2" width="120" height="120" aria-label="Hold slot 2"></canvas></div>
+        </div>
+        <div id="info">
+          <div>Score: <span id="score" aria-live="polite" aria-atomic="true">0</span></div>
+          <div>Lines: <span id="lines">0</span></div>
+          <div>Level: <span id="level">0</span></div>
+          <div class="b2b-row"><span id="b2b-icon" class="b2b-icon off" role="status" aria-live="polite">B2B</span> <span>B2B: <span id="b2b">OFF</span></span></div>
+          <div>Combo: <span id="combo" class="combo">0</span></div>
+          <div id="log-container"><div class="label">Log</div><ul id="log" role="log" aria-live="polite"></ul></div>
+        </div>
+      </div>
+
+      <canvas id="board" width="300" height="600" tabindex="0" role="application" aria-label="Tetris game board"></canvas>
+      <div id="overlay"><div id="overlay-msg" class="overlay-msg"></div></div>
+      <div id="game-over" class="game-over" aria-hidden="true">
+        <div class="game-over-inner">
+          <div id="game-over-title">GAME OVER</div>
+          <div id="game-over-stats" class="game-over-stats">
+            <div>Score: <span id="go-score">0</span></div>
+            <div>Lines: <span id="go-lines">0</span></div>
+          </div>
+          <button id="restart-btn" class="restart-btn">Restart</button>
+        </div>
+      </div>
+      <div id="pause-overlay" class="game-over" aria-hidden="true">
+        <div class="game-over-inner">
+          <div id="pause-title">PAUSED</div>
+          <div class="game-over-stats" style="display:flex;gap:14px;justify-content:center">
+            <button id="pause-resume-btn" class="pause-btn pause-primary">Resume</button>
+            <button id="pause-restart-btn" class="pause-btn pause-secondary">Restart</button>
+          </div>
+        </div>
+      </div>
+      <div id="hud">
+        <div id="next"><div class="label">Next</div><canvas id="next-canvas" width="120" height="600"></canvas></div>
+      </div>
+    </div>
+    <div id="controls">
+      <div class="controls-line"><span><kbd>←</kbd> <kbd>→</kbd> 移動</span></div>
+      <div class="controls-line"><span><kbd>X</kbd> / <kbd>↑</kbd> 右回転　 <kbd>Z</kbd> 左回転</span></div>
+      <div class="controls-line"><span><kbd>↓</kbd> ソフト　 <kbd>Space</kbd> ハード　 <kbd>C</kbd> Hold1　 <kbd>V</kbd> Hold2　 <kbd>Esc</kbd> 中断/再開　 <kbd>R</kbd> 再起動</span></div>
+      <!-- Accessibility live region -->
+      <div id="a11y-notify" aria-live="polite" class="sr-only"></div>
+    </div>
+  </div>
+
+  <script type="module" src="dist/main.js"></script>
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

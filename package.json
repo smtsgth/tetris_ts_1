@@ -1,0 +1,26 @@
+{
+  "name": "tetris_ts_1",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && npx http-server -c-1 .",
+    "dev": "npx http-server -c-1 .",
+    "check:dom": "node tools/check-top-level-dom.js",
+    "lint:dom": "eslint --ext .ts,.js --rulesdir tools/eslint-rules --parser @typescript-eslint/parser \"src/**/*.{ts,js}\" \"dist/**/*.js\" \"scripts/**/*.js\"",
+    "collect-logs": "node ./scripts/collect-logs.js http://localhost:8080 1800",
+    "test": "vitest",
+    "test:watch": "vitest --watch"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "typescript": "^4.9.5",
+    "vitest": "^0.34.2",
+    "eslint": "^8.50.0",
+    "@typescript-eslint/parser": "^6.4.0"
+  },
+  "dependencies": {
+    "puppeteer": "^24.42.0",
+    "chart.js": "^4.4.0"
+  }
+}

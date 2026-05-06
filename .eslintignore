@@ -1,0 +1,14 @@
+node_modules/
+recordings/
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
