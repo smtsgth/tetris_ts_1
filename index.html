@@ -50,10 +50,21 @@
         </div>
         <div id="palette-panel" aria-label="Color palettes" style="margin-top:8px">
           <div class="label">配色パネル</div>
-          <div class="setting-row"><label>Frame</label><div id="palette-outer-panel" class="palette-row" aria-label="枠外配色"></div></div>
-          <div class="setting-row"><label>Inner</label><div id="palette-inner-panel" class="palette-row" aria-label="枠内配色"></div></div>
+          <div class="setting-row"><label>枠</label><div id="palette-outer-panel" class="palette-row" aria-label="枠外配色"></div></div>
+          <div class="setting-row"><label>盤面</label><div id="palette-inner-panel" class="palette-row" aria-label="枠内配色"></div></div>
         </div>
-      </div>
+        <div id="ai-panel" aria-label="AI settings" style="margin-top:8px">
+          <div class="label">AI 設定</div>
+          <div class="setting-row"><label for="ai-toggle">AI</label><input id="ai-toggle" type="checkbox" aria-label="AI 自動化"></div>
+          <div class="setting-row"><label for="ai-lookahead-range">Lookahead</label>
+            <input id="ai-lookahead-range" type="range" min="1" max="6" step="1" aria-label="AI 先読みスライダー" value="6">
+            <input id="ai-lookahead-number" type="number" min="1" max="6" step="1" aria-label="AI 先読み数" value="6">
+          </div>
+          <div class="setting-row"><label for="ai-disable-input">AI中入力ロック</label><input id="ai-disable-input" type="checkbox" checked></div>
+          <div class="setting-row"><label for="allow-hold1">Allow Hold1</label><input id="allow-hold1" type="checkbox" checked></div>
+          <div class="setting-row"><label for="allow-hold2">Allow Hold2</label><input id="allow-hold2" type="checkbox" checked></div>
+        </div>
+        </div>
 
       <!-- second column: Hold slots and Info -->
       <div id="left-hud" role="region" aria-label="Game controls">
@@ -83,9 +94,9 @@
           <button id="restart-btn" class="restart-btn">Restart</button>
         </div>
       </div>
-      <div id="pause-overlay" class="game-over" aria-hidden="true">
-        <div class="game-over-inner">
-          <div id="pause-title">PAUSED</div>
+        <div id="pause-overlay" class="game-over" aria-hidden="true">
+          <div class="game-over-inner">
+            <div id="pause-title">PAUSED</div>
           <div class="game-over-stats" style="display:flex;gap:14px;justify-content:center">
             <button id="pause-resume-btn" class="pause-btn pause-primary">Resume</button>
             <button id="pause-restart-btn" class="pause-btn pause-secondary">Restart</button>

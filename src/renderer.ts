@@ -4,7 +4,7 @@ import { getRotationMatrix } from './tetromino.js';
 
 function fitCanvas(canvas: HTMLCanvasElement | null, cols: number, rows: number) {
   if (!canvas) return null;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.max(window.devicePixelRatio || 1, 1);
   canvas.width = cols * BLOCK_SIZE * dpr;
   canvas.height = rows * BLOCK_SIZE * dpr;
   canvas.style.width = `${cols * BLOCK_SIZE}px`;
@@ -17,7 +17,7 @@ function fitCanvas(canvas: HTMLCanvasElement | null, cols: number, rows: number)
 
 function fitCanvasPx(canvas: HTMLCanvasElement | null, widthPx: number, heightPx: number) {
   if (!canvas) return null;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.max(window.devicePixelRatio || 1, 1);
   canvas.width = Math.max(0, Math.round(widthPx * dpr));
   canvas.height = Math.max(0, Math.round(heightPx * dpr));
   canvas.style.width = `${Math.max(0, Math.round(widthPx))}px`;
@@ -196,8 +196,14 @@ export default class Renderer {
 
       // keep overlay positions and next preview sizing updated on resize
       window.addEventListener('resize', () => {
-        try { this.updateOverlayPositions(); } catch (e) { }
-        try { this.resizeNextCanvas(); } catch (e) { }
+        try { this.reflow(); } catch (e) { }
+      });
+
+      // initial reflow after layout settles (run in next paint frames)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { this.reflow(); } catch (e) { }
+        });
       });
 
       // allow quick restart via Enter / R
@@ -216,10 +222,14 @@ export default class Renderer {
 
   updateOverlayPositions() {
     if (!this.boardCanvas) return;
-    const left = this.boardCanvas.offsetLeft + 'px';
-    const top = this.boardCanvas.offsetTop + 'px';
-    const width = this.boardCanvas.clientWidth + 'px';
-    const height = this.boardCanvas.clientHeight + 'px';
+    // use bounding rect to compute absolute page position (robust across layout modes)
+    const rect = this.boardCanvas.getBoundingClientRect();
+    // compute coordinates relative to the overlay's offsetParent so absolute positioning aligns inside the container
+    const parentRect = (this.overlayEl && (this.overlayEl.offsetParent as Element)) ? (this.overlayEl.offsetParent as Element).getBoundingClientRect() : { left: 0, top: 0 } as DOMRect;
+    const left = `${Math.round(rect.left - parentRect.left)}px`;
+    const top = `${Math.round(rect.top - parentRect.top)}px`;
+    const width = `${Math.round(rect.width)}px`;
+    const height = `${Math.round(rect.height)}px`;
     if (this.overlayEl) {
       this.overlayEl.style.left = left;
       this.overlayEl.style.top = top;
@@ -258,6 +268,25 @@ export default class Renderer {
         }
       } catch (e) { }
     }
+  }
+
+  /**
+   * Recalculate canvas backing buffer sizes and overlay positions.
+   * Called on resize / initial paint to ensure canvases match computed CSS layout.
+   */
+  private reflow() {
+    try {
+      if (this.boardCanvas) fitCanvas(this.boardCanvas, COLS, VISIBLE_ROWS);
+      if (this.holdCanvas1) fitCanvas(this.holdCanvas1, 4, 4);
+      if (this.holdCanvas2) fitCanvas(this.holdCanvas2, 4, 4);
+      // next canvas sizing depends on board dimensions
+      if (this.boardCanvas && this.nextCanvas) this.resizeNextCanvas();
+      // update overlay/game-over/pause positions
+      this.updateOverlayPositions();
+      // force a redraw
+      try { this.render(); } catch (e) { }
+    }
+    catch (e) { }
   }
 
   clear(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -418,7 +447,8 @@ export default class Renderer {
         if (widthBlocks >= 4) leftPad = Math.max(leftPad, minPad);
         let topPad = (4 - heightBlocks) / 2;
         if (heightBlocks >= 4) topPad = Math.max(topPad, minPad);
-        const cell = this.holdCanvas1 ? (this.holdCanvas1.clientWidth / 4) : BLOCK_SIZE;
+        // render hold preview using the same per-block size as the main board
+        const cell = BLOCK_SIZE;
         const borderCell = Math.max(1, Math.floor(cell * 0.06));
         for (let r = 0; r < mat.length; r++) {
           for (let c = 0; c < mat[r].length; c++) {
@@ -458,7 +488,7 @@ export default class Renderer {
         if (widthBlocks2 >= 4) leftPad2 = Math.max(leftPad2, minPad2);
         let topPad2 = (4 - heightBlocks2) / 2;
         if (heightBlocks2 >= 4) topPad2 = Math.max(topPad2, minPad2);
-        const cell2 = this.holdCanvas2 ? (this.holdCanvas2.clientWidth / 4) : BLOCK_SIZE;
+        const cell2 = BLOCK_SIZE;
         const borderCell2 = Math.max(1, Math.floor(cell2 * 0.06));
         for (let r = 0; r < mat2.length; r++) {
           for (let c = 0; c < mat2[r].length; c++) {

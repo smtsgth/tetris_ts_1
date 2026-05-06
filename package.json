@@ -9,6 +9,7 @@
     "check:dom": "node tools/check-top-level-dom.js",
     "lint:dom": "eslint --ext .ts,.js --rulesdir tools/eslint-rules --parser @typescript-eslint/parser \"src/**/*.{ts,js}\" \"dist/**/*.js\" \"scripts/**/*.js\"",
     "collect-logs": "node ./scripts/collect-logs.js http://localhost:8080 1800",
+    "auto-test": "node ./scripts/auto_test_early_fallback.js",
     "test": "vitest",
     "test:watch": "vitest --watch"
   },

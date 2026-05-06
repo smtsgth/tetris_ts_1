@@ -2,6 +2,7 @@ import Game from './game.js';
 
 export default class Input {
   private game: Game;
+  private locked: boolean = false;
   // event logging for precise DAS/ARR measurement
   public eventLog: Array<any> = [];
   private keyState: Record<string, boolean> = {};
@@ -46,10 +47,30 @@ export default class Input {
     try { if (this.downTimer) { (globalThis as any).clearInterval(this.downTimer); this.downTimer = null; } } catch (e) { }
     this.keyState = {};
     this.clearLogs();
+    this.locked = false;
   }
+
+  // disable/enable input processing (used by AI to prevent user interactions while planning)
+  public setLocked(v: boolean) { this.locked = !!v; }
+  public isLocked() { return this.locked; }
 
   private onKeyDown(e: KeyboardEvent) {
     const k = e.key;
+    // If AI is enabled and configured to disable input during run, respect that globally.
+    try {
+      const ai = (window as any).ai;
+      if (ai && typeof ai.isEnabled === 'function' && ai.isEnabled() && typeof ai.getDisableInputDuringRun === 'function' && ai.getDisableInputDuringRun()) {
+        if (k !== 'Escape' && k !== 'r' && k !== 'R' && k !== 'Enter') {
+          e.preventDefault();
+          return;
+        }
+      }
+    } catch (e) { }
+    // if input is locked, ignore gameplay keys except for ESC/pause/restart controls
+    if (this.locked && k !== 'Escape' && k !== 'r' && k !== 'R' && k !== 'Enter') {
+      e.preventDefault();
+      return;
+    }
     // allow pause/resume/restart keys regardless of paused/over state
     try {
       const s = this.game && typeof this.game.getState === 'function' ? this.game.getState() : null;

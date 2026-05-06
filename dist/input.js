@@ -7,6 +7,7 @@ export default class Input {
     getSoftDropInterval() { return this.SOFT_DROP_INTERVAL; }
     setSoftDropInterval(ms) { this.SOFT_DROP_INTERVAL = Math.max(0, Math.floor(ms)); }
     constructor(game) {
+        this.locked = false;
         // event logging for precise DAS/ARR measurement
         this.eventLog = [];
         this.keyState = {};
@@ -68,9 +69,29 @@ export default class Input {
         catch (e) { }
         this.keyState = {};
         this.clearLogs();
+        this.locked = false;
     }
+    // disable/enable input processing (used by AI to prevent user interactions while planning)
+    setLocked(v) { this.locked = !!v; }
+    isLocked() { return this.locked; }
     onKeyDown(e) {
         const k = e.key;
+        // If AI is enabled and configured to disable input during run, respect that globally.
+        try {
+            const ai = window.ai;
+            if (ai && typeof ai.isEnabled === 'function' && ai.isEnabled() && typeof ai.getDisableInputDuringRun === 'function' && ai.getDisableInputDuringRun()) {
+                if (k !== 'Escape' && k !== 'r' && k !== 'R' && k !== 'Enter') {
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+        catch (e) { }
+        // if input is locked, ignore gameplay keys except for ESC/pause/restart controls
+        if (this.locked && k !== 'Escape' && k !== 'r' && k !== 'R' && k !== 'Enter') {
+            e.preventDefault();
+            return;
+        }
         // allow pause/resume/restart keys regardless of paused/over state
         try {
             const s = this.game && typeof this.game.getState === 'function' ? this.game.getState() : null;

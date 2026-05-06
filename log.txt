@@ -1,0 +1,18 @@
+13:35:28.123 Tetris TS initialized main.js:45:9
+13:35:40.980 console.log(window.ai.getLogs().filter(l=>/early-fallback|fallback-applied|worker-overwrite|worker-result ignored|worker-result/.test(l)).slice(-300).join('\n'));
+13:35:41.015 req:1777782935344-1 early-fallback (ms=100)
+req:1777782935344-1 fallback-applied sig:{"next":["L","Z","I","T","J","S"],"hold":null,"current":"O"} score:-34
+req:1777782936267-2 early-fallback (ms=100)
+req:1777782936267-2 fallback-applied sig:{"next":["Z","I","T","J","S","S"],"hold":null,"current":"L"} score:-68
+req:1777782937230-3 early-fallback (ms=100)
+req:1777782937230-3 fallback-applied sig:{"next":["I","T","J","S","S","O"],"hold":null,"current":"Z"} score:-92
+req:1777782938166-4 early-fallback (ms=100)
+req:1777782938166-4 fallback-applied sig:{"next":["T","J","S","S","O","L"],"hold":null,"current":"I"} score:-116
+req:1777782939099-5 early-fallback (ms=100)
+req:1777782939099-5 fallback-applied sig:{"next":["J","S","S","O","L","T"],"hold":null,"current":"T"} score:915
+req:1777782940052-6 early-fallback (ms=100)
+req:1777782940052-6 fallback-applied sig:{"next":["S","S","O","L","T","Z"],"hold":null,"current":"J"} score:951 debugger eval code:1:9
+13:35:41.017 undefined
+13:35:50.021 console.log('appliedFallbacks:', window.ai.appliedFallbacks ? Array.from(window.ai.appliedFallbacks.entries()).length : 'n/a');
+13:35:50.052 appliedFallbacks: 2 debugger eval code:1:9
+13:35:50.053 undefined
