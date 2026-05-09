@@ -10,6 +10,63 @@ const AI_SRC = path.resolve(__dirname, '..', 'src', 'ai.ts');
 const BACKUP = AI_SRC + '.bak';
 const RESULTS_DIR = path.resolve(__dirname, '..', 'recordings');
 if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
+// global events log to help identify which subprocess exited non-zero
+const GLOBAL_RUN_EVENTS_PATH = path.join(RESULTS_DIR, `auto_test_run_events_${Date.now()}.json`);
+let __auto_test_events = [];
+function recordEvent(ev) {
+  try {
+    __auto_test_events.push(Object.assign({ timestamp: Date.now() }, ev));
+    fs.writeFileSync(GLOBAL_RUN_EVENTS_PATH, JSON.stringify(__auto_test_events, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function writeExitFile(code) {
+  try { fs.writeFileSync(path.join(RESULTS_DIR, 'cli_exitcode_run.txt'), String(code), 'utf8'); } catch (e) {}
+}
+
+function handleFatal(kind, err) {
+  const ts = Date.now();
+  const msg = (err && err.stack) ? err.stack : String(err);
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `${kind}_${ts}.log`), msg + '\n'); } catch (e) {}
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `run_fatal_${ts}.log`), msg + '\n'); } catch (e) {}
+  try { __auto_test_events.push(Object.assign({ timestamp: ts }, { type: 'fatal', kind, error: msg })); fs.writeFileSync(GLOBAL_RUN_EVENTS_PATH, JSON.stringify(__auto_test_events, null, 2), 'utf8'); } catch (e) {}
+
+  // attempt to restore original ai.ts if we created a backup
+  try {
+    if (!process.env.SKIP_AUTOTEST_RESTORE && fs.existsSync(BACKUP)) {
+      try { fs.copyFileSync(BACKUP, AI_SRC); } catch (e) {}
+      try { cp.execSync('npm run build', { stdio: 'ignore' }); } catch (e) {}
+    }
+  } catch (e) {}
+
+  writeExitFile(1);
+  // exit non-zero to make failure visible to callers/CI
+  try { process.exit(1); } catch (e) { /* best-effort */ }
+}
+
+process.on('uncaughtException', err => {
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `run_uncaught_exception_${Date.now()}.log`), (err && err.stack) ? err.stack : String(err)); } catch (e) {}
+  recordEvent({ type: 'uncaughtException', error: (err && err.stack) ? err.stack : String(err) });
+  handleFatal('uncaughtException', err);
+});
+
+process.on('unhandledRejection', err => {
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `run_unhandled_rejection_${Date.now()}.log`), (err && err.stack) ? err.stack : String(err)); } catch (e) {}
+  recordEvent({ type: 'unhandledRejection', error: (err && err.stack) ? err.stack : String(err) });
+  handleFatal('unhandledRejection', err);
+});
+
+// ensure signals write an exit file and attempt restore
+process.on('SIGINT', () => { try { writeExitFile(130); } catch (e) {} process.exit(130); });
+process.on('SIGTERM', () => { try { writeExitFile(143); } catch (e) {} process.exit(143); });
+
+// Ensure we record that the script started (helps detect runs that exit early)
+try {
+  recordEvent({ type: 'run-start', pid: process.pid, argv: process.argv.slice(2), cwd: process.cwd() });
+} catch (e) {
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `run_start_error_${Date.now()}.log`), (e && e.stack) ? e.stack : String(e)); } catch (er) {}
+}
+
 
 const args = process.argv.slice(2);
 const TESTS = args.length ? args.map(Number) : [30, 50, 100, 150, 200];
@@ -62,6 +119,7 @@ async function run() {
         cp.execSync('npm run build', { stdio: 'inherit' });
       } catch (e) {
         console.error('Build failed:', e);
+        recordEvent({ type: 'build-failed', error: (e && e.stack) ? e.stack : String(e), status: e && e.status ? e.status : null });
         break;
       }
     } else {
@@ -74,15 +132,38 @@ async function run() {
     const serverUrlLocal = `http://127.0.0.1:${portToUse}/`;
     const serverCmd = `npx http-server -p ${portToUse} -c-1 .`;
     const serverProc = cp.exec(serverCmd);
-    if (serverProc.stdout) serverProc.stdout.on('data', d => process.stdout.write(`[server:${portToUse}] ${d}`));
-    if (serverProc.stderr) serverProc.stderr.on('data', d => process.stderr.write(`[server:${portToUse}.err] ${d}`));
+    const serverLogPath = path.join(RESULTS_DIR, `server_${portToUse}_${Date.now()}.log`);
+    const serverErrPath = path.join(RESULTS_DIR, `server_${portToUse}_${Date.now()}.err`);
+    if (serverProc.stdout) serverProc.stdout.on('data', d => {
+      process.stdout.write(`[server:${portToUse}] ${d}`);
+      try { fs.appendFileSync(serverLogPath, d); } catch (e) {}
+    });
+    if (serverProc.stderr) serverProc.stderr.on('data', d => {
+      process.stderr.write(`[server:${portToUse}.err] ${d}`);
+      try { fs.appendFileSync(serverErrPath, d); } catch (e) {}
+    });
+    serverProc.on('exit', (code, sig) => {
+      try { fs.appendFileSync(serverErrPath, `\n[server-exit] code=${code} signal=${sig}\n`); } catch (e) {}
+      recordEvent({ type: 'server-exit', port: portToUse, code: code, signal: sig });
+      // treat non-zero numeric exit codes as fatal
+      if (typeof code === 'number' && code !== 0) {
+        try { handleFatal('server-exit', new Error(`server exited unexpectedly code=${code} signal=${sig}`)); } catch (e) { }
+      }
+    });
+    serverProc.on('error', err => {
+      try { fs.appendFileSync(serverErrPath, `\n[server-error] ${err && err.stack ? err.stack : err}\n`); } catch (e) {}
+      recordEvent({ type: 'server-proc-error', port: portToUse, error: (err && err.stack) ? err.stack : String(err) });
+      try { handleFatal('server-proc-error', err); } catch (e) { }
+    });
 
     try {
       await waitForServer(serverUrlLocal);
       console.log('Server ready. Launching headless browser...');
     } catch (e) {
       console.error('Server did not start:', e);
-      try { serverProc.kill(); } catch (e) {}
+      try { fs.appendFileSync(serverErrPath, `Server did not start: ${e && e.stack ? e.stack : e}\n`); } catch (er) {}
+      recordEvent({ type: 'server-start-failed', port: portToUse, error: (e && e.stack) ? e.stack : String(e) });
+      try { serverProc.kill(); } catch (e) { recordEvent({ type: 'server-kill-failed', port: portToUse, error: (e && e.stack) ? e.stack : String(e) }); }
       break;
     }
 
@@ -146,11 +227,13 @@ async function run() {
       browser = null;
     } catch (e) {
       console.error('Error during test run:', e);
+      try { fs.appendFileSync(path.join(RESULTS_DIR, `run_error_${ms}_${Date.now()}.log`), (e && e.stack) ? e.stack : String(e)); } catch (er) {}
+      recordEvent({ type: 'test-run-error', earlyFallbackMs: ms, error: (e && e.stack) ? e.stack : String(e) });
       if (browser) { try { await browser.close(); } catch (e) {} }
     }
 
     // stop server
-    try { serverProc.kill(); } catch (e) {}
+    try { serverProc.kill(); recordEvent({ type: 'server-killed', port: portToUse }); } catch (e) { recordEvent({ type: 'server-kill-failed', port: portToUse, error: (e && e.stack) ? e.stack : String(e) }); }
 
     // small cooldown
     await new Promise(r => setTimeout(r, 1000));
@@ -173,6 +256,18 @@ async function run() {
   const summaryPath = path.join(RESULTS_DIR, `auto_test_summary_${Date.now()}.json`);
   fs.writeFileSync(summaryPath, JSON.stringify(results, null, 2), 'utf8');
   console.log('All tests done. Summary saved to', summaryPath);
+  try { fs.writeFileSync(path.join(RESULTS_DIR, 'cli_exitcode_run.txt'), '0', 'utf8'); } catch (e) {}
 }
+run().catch(err => {
+  console.error('Fatal error:', err);
+  try { fs.appendFileSync(path.join(RESULTS_DIR, `run_fatal_${Date.now()}.log`), (err && err.stack) ? err.stack : String(err)); } catch (e) {}
+  recordEvent({ type: 'fatal', error: (err && err.stack) ? err.stack : String(err) });
+  try { fs.writeFileSync(path.join(RESULTS_DIR, 'cli_exitcode_run.txt'), '1', 'utf8'); } catch (e) {}
+  process.exit(1);
+});
 
-run().catch(err => { console.error('Fatal error:', err); process.exit(1); });
+process.on('exit', code => {
+  try { recordEvent({ type: 'process-exit', code: code }); } catch (e) {}
+  // write a simple exit code file so callers can reliably read process result
+  try { fs.writeFileSync(path.join(RESULTS_DIR, 'cli_exitcode_run.txt'), String(code || 0), 'utf8'); } catch (e) {}
+});

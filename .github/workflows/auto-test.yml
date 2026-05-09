@@ -1,0 +1,38 @@
+name: Auto Test - early-fallback
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '.github/workflows/auto-test.yml'
+
+jobs:
+  auto-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run auto-test (CI)
+        env:
+          CI: 'true'
+          TEST_DURATION_MS: '3000'
+          SKIP_BUILD: 'true'
+        run: npm run auto-test:ci --silent
+
+      - name: Upload recordings
+        uses: actions/upload-artifact@v4
+        with:
+          name: recordings
+          path: recordings/**
