@@ -40,15 +40,7 @@ jobs:
         with:
           name: recordings
           path: recordings/**
-name: CI
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-
-jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
