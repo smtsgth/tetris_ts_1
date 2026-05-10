@@ -22,6 +22,7 @@ export default class AI {
   private activeWorkers: Map<string, { worker: Worker; url: string }> = new Map();
   private workerTimeouts: Map<string, any> = new Map();
   private earlyFallbackTimers: Map<string, any> = new Map();
+  private workerStartTimes: Map<string, number> = new Map();
   private appliedFallbacks: Map<string, { sig: string; score: number; parsedSig?: any; snapshot?: any; appliedAt?: number }> = new Map();
   private reqCounter = 0;
   private pendingReqId: string | null = null;
@@ -33,9 +34,12 @@ export default class AI {
   private repeatCount = 0;
   // guard to prevent planOnce from starting new workers while a probe/sweep is running
   private probeInProgress: boolean = false;
-  private maxConcurrentWorkers: number = 8; // maximum concurrent background workers
+  private cachedBlobWorkerUrl: string | null = null;
+  private maxConcurrentWorkers: number = (typeof navigator !== 'undefined' && (navigator as any).hardwareConcurrency ? Math.max(1, Math.floor((navigator as any).hardwareConcurrency / 2)) : 4); // maximum concurrent background workers
+  private workerPool: Worker[] = [];
+  private poolSize: number = 0;
   // early fallback timers are tracked per-request in earlyFallbackTimers map
-  private EARLY_FALLBACK_MS = 50; // ms (testing 100ms)
+  private EARLY_FALLBACK_MS = 100; // ms (testing 100ms)
   // when a synchronous fallback has been applied, allow a worker result
   // to overwrite it if the worker did meaningful work or slightly better score
   private WORKER_OVERWRITE_SCORE_DELTA = 2;
@@ -44,6 +48,7 @@ export default class AI {
 
   constructor(game: Game) {
     this.game = game;
+    try { this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2)); } catch (e) { this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2)); }
   }
 
   isEnabled(): boolean { return this.enabled; }
@@ -202,7 +207,7 @@ export default class AI {
 
         const placementCache = new Map(); // boardHash|type -> placements (LRU via reinsert)
         let placementCacheHits = 0, placementCacheMisses = 0, placementGeneratedCount = 0;
-        let TOP_K = 4; // can be tuned per-request via params.timeoutMs / fastMode
+        let TOP_K = 3; // reduced default to lower branching work
 
         async function generatePlacementsForType(board, type, reqId, topKOverride){
           const bHash = hashBoard(board);
@@ -225,8 +230,8 @@ export default class AI {
             for(let x=minX; x<=maxX; x++){
               if(cancelled) return placements; // abort early if cancel requested
               iterCount++;
-              // periodically report progress and yield so cancel messages are processed
-              if ((iterCount & 31) === 0) {
+              // periodically report progress and yield so cancel messages are processed (reduced frequency)
+              if ((iterCount & 127) === 0) {
                 try { self.postMessage({ reqId: reqId, type: 'progress', progress: { piece: type, iterCount: iterCount } }); } catch (e) {}
                 await new Promise(r=>setTimeout(r,0));
               }
@@ -246,7 +251,7 @@ export default class AI {
           placementCacheMisses++;
           placementGeneratedCount += top.length;
           // limit cache size to avoid unbounded growth (evict oldest if large)
-          if(placementCache.size > 300) {
+          if(placementCache.size > 200) {
             const it = placementCache.keys(); placementCache.delete(it.next().value);
           }
           return top;
@@ -380,9 +385,26 @@ export default class AI {
           })();
       })();
     `;
-    const blob = new Blob([code], { type: 'text/javascript' });
-    const url = URL.createObjectURL(blob);
-    const w = new Worker(url);
+    // Ensure we have a cached Blob URL
+    try {
+      if (!this.cachedBlobWorkerUrl) {
+        const blob = new Blob([code], { type: 'text/javascript' });
+        this.cachedBlobWorkerUrl = URL.createObjectURL(blob);
+      }
+    } catch (e) {
+      // ignore - we'll fallback to per-request creation below
+    }
+
+    // Reuse an idle worker from the pool if available
+    if (this.workerPool.length > 0) {
+      const w = this.workerPool.pop() as Worker;
+      // when reused, ensure onmessage will be set by caller
+      return { worker: w, url: this.cachedBlobWorkerUrl as string };
+    }
+
+    // Create a new worker using cached URL when possible
+    const url = this.cachedBlobWorkerUrl || URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+    const w = new Worker(url as string);
     return { worker: w, url };
   }
 
@@ -399,6 +421,16 @@ export default class AI {
           if (!this.activeWorkers.has(reqId)) return;
           const p = msg.progress || msg.heartbeat || {};
           this.logs.push(`req:${reqId} progress depth:${p.depth} exp:${p.expandedNodes} placed:${p.placementsConsidered} t:${p.timeMs}`);
+          // log time from send to first progress heartbeat (worker startup latency)
+          try {
+            if (p && p.started) {
+              const st = this.workerStartTimes.get(reqId);
+              if (st) {
+                const firstMs = Date.now() - st;
+                this.logs.push(`req:${reqId} start-to-first-progress-ms:${firstMs}`);
+              }
+            }
+          } catch (e) {}
         } catch (e) {}
         // re-arm per-worker plan timeout so worker isn't prematurely considered timed out
         try {
@@ -507,6 +539,15 @@ export default class AI {
       // final/cancel/error messages: clear per-worker timeout and early-fallback timers and process normally
       try { const t = this.workerTimeouts.get(reqId); if (t) { clearTimeout(t); } this.workerTimeouts.delete(reqId); } catch (e) {}
       try { const ef = this.earlyFallbackTimers.get(reqId); if (ef) { clearTimeout(ef); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
+      // log total round-trip time if we recorded a start
+      try {
+        const st = this.workerStartTimes.get(reqId);
+        if (st) {
+          const total = Date.now() - st;
+          this.logs.push(`req:${reqId} worker-roundtrip-ms:${total}`);
+          try { this.workerStartTimes.delete(reqId); } catch (e) {}
+        }
+      } catch (e) {}
       if (this.pendingReqId === reqId) this.pendingReqId = null;
       // cleanup any active worker for this request
       try { this.terminateActiveWorker(reqId); } catch (e) {}
@@ -690,6 +731,9 @@ export default class AI {
         return;
       }
 
+      // record send timestamp for basic latency profiling
+      try { this.workerStartTimes.set(reqId, Date.now()); } catch (e) {}
+
       // start per-worker timeout (PLAN_TIMEOUT_MS)
       if (this.workerTimeouts.has(reqId)) { try { clearTimeout(this.workerTimeouts.get(reqId)); } catch (e) {} this.workerTimeouts.delete(reqId); }
       this.workerTimeouts.set(reqId, setTimeout(() => {
@@ -761,8 +805,16 @@ export default class AI {
       if (typeof reqId === 'string') {
         const info = this.activeWorkers.get(reqId);
         if (info) {
-          try { info.worker.terminate(); } catch (e) {}
-          try { URL.revokeObjectURL(info.url); } catch (e) {}
+          try {
+            const usedCached = info.url && this.cachedBlobWorkerUrl && info.url === this.cachedBlobWorkerUrl;
+            if (usedCached && this.workerPool.length < this.poolSize) {
+              try { info.worker.onmessage = null; } catch (e) {}
+              this.workerPool.push(info.worker);
+            } else {
+              try { info.worker.terminate(); } catch (e) {}
+              try { if (info.url && info.url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(info.url); } } catch (e) {}
+            }
+          } catch (e) {}
           this.activeWorkers.delete(reqId);
         }
         const t = this.workerTimeouts.get(reqId);
@@ -774,8 +826,16 @@ export default class AI {
       }
       // terminate all
       for (const [rid, info] of Array.from(this.activeWorkers.entries())) {
-        try { info.worker.terminate(); } catch (e) {}
-        try { URL.revokeObjectURL(info.url); } catch (e) {}
+        try {
+          const usedCached = info.url && this.cachedBlobWorkerUrl && info.url === this.cachedBlobWorkerUrl;
+          if (usedCached && this.workerPool.length < this.poolSize) {
+            try { info.worker.onmessage = null; } catch (e) {}
+            this.workerPool.push(info.worker);
+          } else {
+            try { info.worker.terminate(); } catch (e) {}
+            try { if (info.url && info.url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(info.url); } } catch (e) {}
+          }
+        } catch (e) {}
         this.activeWorkers.delete(rid);
         const t = this.workerTimeouts.get(rid); if (t) { try { clearTimeout(t); } catch (e) {} this.workerTimeouts.delete(rid); }
         const ef = this.earlyFallbackTimers.get(rid); if (ef) { try { clearTimeout(ef); } catch (e) {} this.earlyFallbackTimers.delete(rid); }
@@ -814,11 +874,11 @@ export default class AI {
             w.postMessage({ type: 'cancel' });
           } catch (e) {}
           // give worker a short grace period to report profile on cancel
-          graceTimer = setTimeout(() => {
+            graceTimer = setTimeout(() => {
             if (done) return;
             done = true;
             try { w.terminate(); } catch (e) { }
-            try { URL.revokeObjectURL(url); } catch (e) { }
+              try { if (url && url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(url); } } catch (e) { }
             resolve({ timeout: true });
           }, 350);
         }, timeoutMs);
@@ -835,7 +895,7 @@ export default class AI {
                 if (done) return;
                 done = true;
                 try { w.terminate(); } catch (e) {}
-                try { URL.revokeObjectURL(url); } catch (e) {}
+                try { if (url && url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(url); } } catch (e) {}
                 resolve({ timeout: true });
               }, 350);
             }, timeoutMs);
@@ -846,11 +906,11 @@ export default class AI {
           try { clearTimeout(timer); } catch (e) {}
           if (graceTimer) { try { clearTimeout(graceTimer); } catch (e) {} }
           try { w.terminate(); } catch (e) {}
-          try { URL.revokeObjectURL(url); } catch (e) {}
+          try { if (url && url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(url); } } catch (e) {}
           resolve(msg || {});
         };
         const payload = { reqId: `probe-${Date.now()}`, lookahead: (typeof (params && params.lookahead) === 'number' ? params.lookahead : this.lookahead), weights: weights || {}, params: Object.assign({}, params || {}, { timeoutMs: timeoutMs }), state };
-        try { w.postMessage(payload); } catch (e) { clearTimeout(timer); try { w.terminate(); } catch (e) {} try { URL.revokeObjectURL(url); } catch (e) {} resolve({ error: String(e) }); }
+        try { w.postMessage(payload); } catch (e) { clearTimeout(timer); try { w.terminate(); } catch (e) {} try { if (url && url !== this.cachedBlobWorkerUrl) { URL.revokeObjectURL(url); } } catch (e) {} resolve({ error: String(e) }); }
       } catch (e) { resolve({ error: String(e) }); }
     });
 
