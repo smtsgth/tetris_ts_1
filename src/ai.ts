@@ -894,7 +894,17 @@ export default class AI {
         if (result.plan && result.plan.action === 'harddrop') {
           if (typeof this.game.hardDrop === 'function') this.game.hardDrop();
         } else if (result.plan && result.plan.action === 'hold') {
-          if (typeof this.game.holdPiece === 'function') this.game.holdPiece(result.plan.slot || 1);
+          const slot = result.plan && typeof result.plan.slot === 'number' ? result.plan.slot : 1;
+          // respect game's allowHold toggles; if hold is disabled, convert to harddrop to make progress
+          try {
+            const holdAllowed = (slot === 1) ? (this.game && typeof this.game.allowHold1 !== 'undefined' ? this.game.allowHold1 : true) : (this.game && typeof this.game.allowHold2 !== 'undefined' ? this.game.allowHold2 : true);
+            if (!holdAllowed) {
+              try { this.logs.push(`hold skipped: slot=${slot} disabled -> performing harddrop instead`); } catch (e) {}
+              if (typeof this.game.hardDrop === 'function') this.game.hardDrop();
+            } else {
+              if (typeof this.game.holdPiece === 'function') this.game.holdPiece(slot);
+            }
+          } catch (e) {}
         } else if (result.plan && result.plan.action === 'place') {
           // rotate to desired orientation then move horizontally then harddrop
           try {
