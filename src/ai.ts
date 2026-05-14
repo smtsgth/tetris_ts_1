@@ -7,14 +7,15 @@ export default class AI {
   private enabled = false;
   private speedMultiplier = 1;
   private debug = false;
-  private lookahead = 6;
+  private lookahead = 3;
   private weightLines = 1000;
   private weightAgg = 6;
   private weightHoles = 130;
   private weightBump = 5;
   private holdPenalty = 20;
-  private beamWidthBase = 4;
-  private perNodeLimit = 2;
+  private beamWidthBase = 3;
+  private perNodeLimit = 1;
+  private topK = 2;
   private disableInputDuringRun = true;
   private logs: string[] = [];
 
@@ -45,6 +46,8 @@ export default class AI {
   private WORKER_OVERWRITE_SCORE_DELTA = 2;
   private WORKER_MIN_PROFILE_MS_FOR_RELAX = 60;
   private APPLIED_FALLBACK_TTL_MS = 400; // ms - if applied fallback newer than this, prefer to defer instead of killing
+  // When true, do not schedule early or plan timeouts (useful for long-running captures)
+  private DISABLE_FALLBACKS: boolean = false;
 
   constructor(game: Game) {
     this.game = game;
@@ -88,6 +91,41 @@ export default class AI {
   getLogs(): string[] { return this.logs.slice(); }
   clearLogs(): void { this.logs = []; }
 
+  // runtime-collected worker profiles for debugging/aggregation
+  private collectedProfiles: any[] = [];
+
+  getAllProfileEvents(): any[] {
+    return this.collectedProfiles.slice();
+  }
+
+  exportProfilesToWindow(): void {
+    try { (window as any).__workerProfiles = this.getAllProfileEvents(); } catch (e) {}
+  }
+
+  downloadProfiles(filename?: string): void {
+    try {
+      const data = JSON.stringify(this.getAllProfileEvents(), null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `worker_profiles_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 5000);
+    } catch (e) {}
+  }
+
+  private recordProfile(evt: any) {
+    try {
+      const now = Date.now();
+      this.collectedProfiles.push(Object.assign({ ts: now }, evt));
+      // keep memory bounded
+      if (this.collectedProfiles.length > 20000) this.collectedProfiles.splice(0, this.collectedProfiles.length - 20000);
+    } catch (e) {}
+  }
+
   setLookahead(n: number) { this.lookahead = Math.max(1, Math.min(16, Math.floor(Number(n) || 1))); }
   getLookahead() { return this.lookahead; }
 
@@ -114,6 +152,9 @@ export default class AI {
   getBeamWidthBase() { return this.beamWidthBase; }
   setPerNodeLimit(n: number) { this.perNodeLimit = Math.max(1, Math.floor(Number(n) || 8)); }
   getPerNodeLimit() { return this.perNodeLimit; }
+
+  setTopK(n: number) { this.topK = Math.max(1, Math.floor(Number(n) || 1)); }
+  getTopK() { return this.topK; }
 
   private startLoop() {
     try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(true); } catch (e) {}
@@ -153,259 +194,47 @@ export default class AI {
     }, interval);
   }
 
-  // create an inline worker (per-request) via Blob that accepts a small state snapshot and returns a trivial plan
+  // Create a worker by preferring the external built module, with safe fallbacks.
   private createWorkerForRequest(): { worker: Worker; url: string } {
-    const code = `
-      (function(){
-        const COLS = 10;
-        const SHAPES = { I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], J:[[1,0,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], L:[[0,0,1,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], O:[[0,1,1,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]], S:[[0,1,1,0],[1,1,0,0],[0,0,0,0],[0,0,0,0]], T:[[0,1,0,0],[1,1,1,0],[0,0,0,0],[0,0,0,0]], Z:[[1,1,0,0],[0,1,1,0],[0,0,0,0],[0,0,0,0]] };
+    const extUrl = '/dist/ai_worker.js';
 
-        function rotateCW(m){ const n=m.length; const res=Array.from({length:n},()=>Array(n).fill(0)); for(let r=0;r<n;r++) for(let c=0;c<n;c++) res[c][n-1-r]=m[r][c]; return res; }
-        // precompute rotations and bounding boxes to reduce per-iteration work
-        const PRE_ROTATIONS = {};
-        const ROT_BBOX = {};
-        for(const t in SHAPES){
-          const base = SHAPES[t].map(r=>r.slice());
-          const r0 = base;
-          const r1 = rotateCW(r0);
-          const r2 = rotateCW(r1);
-          const r3 = rotateCW(r2);
-          PRE_ROTATIONS[t] = [r0, r1, r2, r3];
-          ROT_BBOX[t] = PRE_ROTATIONS[t].map(mat => {
-            let minC = mat[0].length, maxC = -1;
-            for(let rr=0; rr<mat.length; rr++) for(let cc=0; cc<mat[rr].length; cc++) if(mat[rr][cc]){ if(cc<minC) minC=cc; if(cc>maxC) maxC=cc; }
-            return { minC, maxC };
-          });
-        }
-        function getRotationMatrix(type, rot){ const rr = ((rot%4)+4)%4; return PRE_ROTATIONS[type][rr]; }
-        function cloneBoard(b){ return b.map(r=>r.slice()); }
-
-        function canPlace(board, mat, x, y){ const rows=board.length; for(let r=0;r<mat.length;r++){ for(let c=0;c<mat[r].length;c++){ if(!mat[r][c]) continue; const bx=x+c, by=y+r; if(bx<0||bx>=COLS) return false; if(by>=rows) return false; if(by>=0 && board[by][bx]) return false; } } return true; }
-        function dropY(board, mat, x, startY){ let y=startY; while(canPlace(board, mat, x, y+1)) y++; return y; }
-        function placeAndClear(board, mat, x, y, type){ const b=cloneBoard(board); for(let r=0;r<mat.length;r++) for(let c=0;c<mat[r].length;c++) if(mat[r][c]){ const bx=x+c, by=y+r; if(by>=0&&by<b.length&&bx>=0&&bx<COLS) b[by][bx]=type; } let cleared=0; for(let rr=b.length-1; rr>=0; rr--){ if(b[rr].every(cell=>cell)){ b.splice(rr,1); b.unshift(Array(COLS).fill(null)); cleared++; rr++; } } return { board: b, cleared }; }
-
-        let W_LINES = 1000, W_AGG = 6, W_HOLES = 130, W_BUMP = 5, HOLD_PENALTY = 20;
-        function aggregateHeight(board){ const cols=COLS, rows=board.length, heights=Array(cols).fill(0); for(let c=0;c<cols;c++){ for(let r=0;r<rows;r++){ if(board[r][c]){ heights[c]=rows-r; break; } } } return heights; }
-        function countHoles(board){ const rows=board.length; let holes=0; for(let c=0;c<COLS;c++){ let seen=false; for(let r=0;r<rows;r++){ if(board[r][c]) seen=true; else if(seen) holes++; } } return holes; }
-        function bumpiness(heights){ let s=0; for(let i=0;i<heights.length-1;i++) s+=Math.abs(heights[i]-heights[i+1]); return s; }
-        function evaluate(board, linesCleared){ const heights=aggregateHeight(board); const agg=heights.reduce((a,b)=>a+b,0); const holes=countHoles(board); const bump=bumpiness(heights); return linesCleared*W_LINES - agg*W_AGG - holes*W_HOLES - bump*W_BUMP; }
-
-        function hashBoard(board){ // fast 32-bit FNV-1a-ish hash
-          let h = 2166136261 >>> 0;
-          for(let r=0;r<board.length;r++){
-            const row = board[r];
-            for(let c=0;c<row.length;c++){
-              const v = row[c] ? row[c].charCodeAt(0) : 46; // '.'
-              h ^= v;
-              h = Math.imul(h, 16777619) >>> 0;
-            }
-            h ^= 0x9e3779b1;
-            h = Math.imul(h, 16777619) >>> 0;
-          }
-          return (h >>> 0).toString(36);
-        }
-
-        const placementCache = new Map(); // boardHash|type -> placements (LRU via reinsert)
-        let placementCacheHits = 0, placementCacheMisses = 0, placementGeneratedCount = 0;
-        let TOP_K = 3; // reduced default to lower branching work
-
-        async function generatePlacementsForType(board, type, reqId, topKOverride){
-          const bHash = hashBoard(board);
-          const topKLocalKey = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
-          const key = bHash + '|' + type + '|' + String(topKLocalKey);
-          if(placementCache.has(key)){
-            // LRU: reinsert to mark as recently used
-            const v = placementCache.get(key);
-            placementCache.delete(key);
-            placementCache.set(key, v);
-            placementCacheHits++;
-            return v;
-          }
-          const placements=[];
-          let iterCount = 0;
-          for(let rot=0; rot<4; rot++){
-            const mat = PRE_ROTATIONS[type][rot];
-            const bbox = ROT_BBOX[type][rot];
-            const minX = -bbox.minC; const maxX = COLS - 1 - bbox.maxC;
-            for(let x=minX; x<=maxX; x++){
-              if(cancelled) return placements; // abort early if cancel requested
-              iterCount++;
-              // periodically report progress and yield so cancel messages are processed (reduced frequency)
-              if ((iterCount & 127) === 0) {
-                try { self.postMessage({ reqId: reqId, type: 'progress', progress: { piece: type, iterCount: iterCount } }); } catch (e) {}
-                await new Promise(r=>setTimeout(r,0));
-              }
-              const startY = -4;
-              if(!canPlace(board, mat, x, startY)) continue;
-              const y = dropY(board, mat, x, startY);
-              const res = placeAndClear(board, mat, x, y, type);
-              const score = evaluate(res.board, res.cleared);
-              placements.push({ x, rot, board: res.board, cleared: res.cleared, score });
-            }
-          }
-          // keep top placements per piece to reduce branching (tighter cutoff to speed search)
-          placements.sort((a,b)=>b.score - a.score);
-          const topKToUse = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
-          const top = placements.slice(0, topKToUse);
-          placementCache.set(key, top);
-          placementCacheMisses++;
-          placementGeneratedCount += top.length;
-          // limit cache size to avoid unbounded growth (evict oldest if large)
-          if(placementCache.size > 200) {
-            const it = placementCache.keys(); placementCache.delete(it.next().value);
-          }
-          return top;
-        }
-
-        let cancelled = false;
-        self.onmessage = function(e){
-          const msg = e.data || {};
-          // support cancel messages
-          if(msg && msg.type === 'cancel'){
-            cancelled = true; return;
-          }
-          cancelled = false;
-          const reqId = msg.reqId;
-          // send an immediate lightweight heartbeat so the caller can extend timeouts
-          try { self.postMessage({ reqId: reqId, type: 'progress', progress: { started: true } }); } catch(e) {}
-          const lookahead = (typeof msg.lookahead === 'number') ? msg.lookahead : 1;
-          const s = msg.state || {};
-          // accept tunable weights from caller
-          try {
-            const w = msg.weights || {};
-            W_LINES = Number(w.wLines || W_LINES);
-            W_AGG = Number(w.wAgg || W_AGG);
-            W_HOLES = Number(w.wHoles || W_HOLES);
-            W_BUMP = Number(w.wBump || W_BUMP);
-            HOLD_PENALTY = Number(w.holdPenalty || HOLD_PENALTY);
-          } catch (e) {}
-          const params = msg.params || {};
-          const beamWidthBaseMsg = Number(params.beamWidthBase) || 6;
-          let perNodeLimitMsg = Number(params.perNodeLimit) || 6;
-          let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 4;
-          // adapt work amount based on provided timeoutMs or fastMode hint
-          if (typeof params.timeoutMs === 'number') {
-            if (params.timeoutMs <= 700) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
-            else if (params.timeoutMs <= 1500) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 4); topKMsg = Math.min(topKMsg, 3); }
-          }
-          if (params.fastMode) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
-          (async function(){
-            try{
-              const sigObj = { next: (s.next||[]).slice(0, lookahead), hold: s.hold, current: s.current };
-              const sig = JSON.stringify(sigObj);
-              const beamWidthBase = beamWidthBaseMsg;
-              const perNodeLimit = perNodeLimitMsg;
-              TOP_K = topKMsg;
-              const root = { board: (s.board||[]).map(r=>r.slice()), current: s.current ? s.current.type : null, hold: s.hold || null, next: (s.next||[]).slice(), score: 0, firstAction: null };
-                let beam = [root];
-                const depthProfile = [];
-                const startTotal = Date.now();
-                for(let depth=0; depth<lookahead; depth++){
-                  if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
-                  const nextMap = new Map(); // key -> node (keep best score per key)
-                  const depthStart = Date.now();
-                  let expandedNodes = 0, placementsConsidered = 0;
-                  for(const node of beam){
-                    if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
-                    if(!node.current) continue;
-                    expandedNodes++;
-                    // dynamic per-node/topK adjustments based on depth and remaining budget
-                    const elapsedSoFarLocal = Date.now() - startTotal;
-                    const remainingBudgetLocal = (typeof params.timeoutMs === 'number' ? params.timeoutMs : 1000) - elapsedSoFarLocal;
-                    let perNodeLimitLocal = perNodeLimitMsg;
-                    let topKLocal = topKMsg;
-                    if (params.adaptive) {
-                      const depthFactorLocal = 1 - (depth / Math.max(1, lookahead));
-                      perNodeLimitLocal = Math.max(1, Math.min(perNodeLimitMsg, Math.ceil(perNodeLimitMsg * (0.25 + 0.75 * depthFactorLocal))));
-                      topKLocal = Math.max(1, Math.min(topKMsg, Math.ceil(topKMsg * (0.25 + 0.75 * depthFactorLocal))));
-                      if (remainingBudgetLocal < 500) { perNodeLimitLocal = Math.min(perNodeLimitLocal, 1); topKLocal = Math.min(topKLocal, 1); }
-                    }
-                    const placementsAll = await generatePlacementsForType(node.board, node.current, reqId, topKLocal);
-                    const placements = placementsAll.slice(0, perNodeLimitLocal);
-                    placementsConsidered += placements.length;
-                    for(const p of placements){
-                      if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
-                      const newNext = node.next.slice();
-                      const newCur = newNext.length ? newNext.shift() : null;
-                      const newKey = hashBoard(p.board) + '|' + (newCur||'null') + '|' + (node.hold||'null') + '|' + newNext.join(',');
-                      const newScore = node.score + p.score;
-                      const existing = nextMap.get(newKey);
-                      const nd = { board: p.board, current: newCur, hold: node.hold, next: newNext, score: newScore, firstAction: node.firstAction || { type: 'place', x: p.x, rot: p.rot } };
-                      if(!existing || existing.score < nd.score) nextMap.set(newKey, nd);
-                    }
-                    // try hold
-                    if(node.hold !== null || (node.next && node.next.length>0)){
-                      const swappedHold = node.hold === null ? node.current : node.hold;
-                      const newCurType = node.hold === null ? (node.next && node.next.length ? node.next[0] : null) : node.hold;
-                      const newNextAfterHold = node.hold === null ? node.next.slice(1) : node.next.slice();
-                      if(newCurType){
-                      const placements2All = await generatePlacementsForType(node.board, newCurType, reqId, topKLocal);
-                      const placements2 = placements2All.slice(0, perNodeLimitLocal);
-                      placementsConsidered += placements2.length;
-                      for(const p of placements2){
-                          if(cancelled){ try{ self.postMessage({ reqId: reqId, cancelled: true, profile:{ depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e){}; return; }
-                          const newKey = hashBoard(p.board) + '|' + (newNextAfterHold.length? newNextAfterHold[0] : 'null') + '|' + (swappedHold||'null') + '|' + newNextAfterHold.join(',');
-                          const newScore = node.score + p.score - HOLD_PENALTY; // small penalty for hold
-                          const nd2 = { board: p.board, current: newNextAfterHold.length? newNextAfterHold.shift() : null, hold: swappedHold, next: newNextAfterHold, score: newScore, firstAction: node.firstAction || { type: 'hold', slot: 1 } };
-                          const existing = nextMap.get(newKey);
-                          if(!existing || existing.score < nd2.score) nextMap.set(newKey, nd2);
-                        }
-                      }
-                    }
-                  }
-                  // build new beam from nextMap values, sorted by score
-                  const nextArr = Array.from(nextMap.values());
-                  if(nextArr.length === 0) break;
-                  nextArr.sort((a,b)=>b.score - a.score);
-                  const beamWidth = Math.max(4, Math.floor(beamWidthBase / (1 + Math.floor(depth/2))));
-                  beam = nextArr.slice(0, beamWidth);
-                  const depthEnd = Date.now();
-                  depthProfile.push({ depth, expandedNodes, placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart });
-                  // send a lightweight progress heartbeat so the caller can extend timeouts
-                  try { self.postMessage({ reqId: reqId, type: 'progress', progress: { depth: depth, expandedNodes: expandedNodes, placementsConsidered: placementsConsidered, nextMapSize: nextMap.size, timeMs: depthEnd-depthStart } }); } catch(e) {}
-                  // also publish an intermediate best-so-far plan so the main thread can use early results
-                  try {
-                    const bestNow = (beam && beam.length ? beam[0] : null) || root;
-                    let _planNow = { action: 'harddrop' };
-                    if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'place') _planNow = { action: 'place', x: bestNow.firstAction.x, rotation: bestNow.firstAction.rot };
-                    else if (bestNow && bestNow.firstAction && bestNow.firstAction.type === 'hold') _planNow = { action: 'hold', slot: 1 };
-                    try { self.postMessage({ reqId: reqId, plan: _planNow, score: bestNow ? bestNow.score : 0, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal }, intermediate: true }); } catch (e) {}
-                  } catch (e) {}
-                  // yield to event loop so cancel messages are processed
-                  await new Promise(r=>setTimeout(r,0));
-                }
-              beam.sort((a,b)=>b.score - a.score);
-              const best = beam[0] || root;
-              let plan = { action: 'harddrop' };
-              if(best.firstAction && best.firstAction.type === 'place') plan = { action: 'place', x: best.firstAction.x, rotation: best.firstAction.rot };
-              else if(best.firstAction && best.firstAction.type === 'hold') plan = { action: 'hold', slot: 1 };
-              const bestScore = best.score || 0;
-              try { self.postMessage({ reqId: reqId, plan: plan, score: bestScore, sig: sig, profile: { depthProfile: depthProfile.slice(), placementCacheHits, placementCacheMisses, placementGeneratedCount, totalTimeMs: Date.now()-startTotal } }); } catch(e) { try{ self.postMessage({ reqId: reqId, error: String(e) }); } catch(e){} }
-            } catch(err){ try{ self.postMessage({ reqId: reqId, error: String(err) }); } catch(e){} }
-          })();
-      })();
-    `;
-    // Ensure we have a cached Blob URL
+    // 1) Try module-type worker (supports `export`/ESM in dist output)
     try {
-      if (!this.cachedBlobWorkerUrl) {
-        const blob = new Blob([code], { type: 'text/javascript' });
-        this.cachedBlobWorkerUrl = URL.createObjectURL(blob);
-      }
+      const w = new Worker(extUrl, { type: 'module' } as any);
+      return { worker: w, url: extUrl };
     } catch (e) {
-      // ignore - we'll fallback to per-request creation below
+      // continue to next attempt
     }
 
-    // Reuse an idle worker from the pool if available
+    // 2) Try classic worker (some environments may accept non-module scripts)
+    try {
+      const w = new Worker(extUrl);
+      return { worker: w, url: extUrl };
+    } catch (e) {
+      // continue to next attempt
+    }
+
+    // 3) Reuse an idle worker from the pool if available
     if (this.workerPool.length > 0) {
       const w = this.workerPool.pop() as Worker;
-      // when reused, ensure onmessage will be set by caller
-      return { worker: w, url: this.cachedBlobWorkerUrl as string };
+      return { worker: w, url: extUrl };
     }
 
-    // Create a new worker using cached URL when possible
-    const url = this.cachedBlobWorkerUrl || URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
-    const w = new Worker(url as string);
-    return { worker: w, url };
+    // 4) Last-resort minimal fallback worker that reports 'worker-not-available'
+    const fallbackScript = `
+      self.onmessage = function(e) {
+        const reqId = e && e.data && e.data.reqId ? e.data.reqId : null;
+        try { self.postMessage({ reqId: reqId, error: 'worker-not-available' }); } catch (err) {}
+      };
+    `;
+    try {
+      const blob = new Blob([fallbackScript], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      const w = new Worker(url as string);
+      return { worker: w, url };
+    } catch (e) {
+      throw new Error('Failed to create worker');
+    }
   }
 
   private onWorkerMessage(msg: any) {
@@ -421,6 +250,7 @@ export default class AI {
           if (!this.activeWorkers.has(reqId)) return;
           const p = msg.progress || msg.heartbeat || {};
           this.logs.push(`req:${reqId} progress depth:${p.depth} exp:${p.expandedNodes} placed:${p.placementsConsidered} t:${p.timeMs}`);
+          try { this.recordProfile({ reqId, event: 'progress', progress: p }); } catch (e) {}
           // log time from send to first progress heartbeat (worker startup latency)
           try {
             if (p && p.started) {
@@ -460,6 +290,7 @@ export default class AI {
               try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
               const state = this.game.getState();
               const fallback = this.syncFallbackPlan(state);
+              try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
               try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
               try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
               this.handlePlanResult(fallback);
@@ -476,6 +307,7 @@ export default class AI {
       // If worker sent an intermediate (best-so-far) plan, handle it without terminating the worker.
       if (msg && msg.plan && msg.intermediate) {
         try {
+          try { this.recordProfile({ reqId, event: 'intermediate', plan: msg.plan, score: msg.score, sig: msg.sig, profile: msg.profile || null }); } catch (e) {}
           const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
           this.logs.push(`req:${reqId} worker-intermediate sig:${result.sig} score:${result.score}`);
           // compare against any applied fallback and possibly overwrite
@@ -553,6 +385,7 @@ export default class AI {
       try { this.terminateActiveWorker(reqId); } catch (e) {}
       if (msg.cancelled) {
         this.logs.push(`req:${reqId} worker-cancelled`);
+        try { this.recordProfile({ reqId, event: 'worker-cancelled' }); } catch (e) {}
         const state = this.game.getState();
         const fallback = this.syncFallbackPlan(state);
         this.handlePlanResult(fallback);
@@ -560,6 +393,7 @@ export default class AI {
       }
       if (msg.error) {
         this.logs.push(`req:${reqId} worker-error:${msg.error}`);
+        try { this.recordProfile({ reqId, event: 'worker-error', error: msg.error }); } catch (e) {}
         // fallback
         const state = this.game.getState();
         const fallback = this.syncFallbackPlan(state);
@@ -568,6 +402,7 @@ export default class AI {
       }
       const result = { plan: msg.plan, score: msg.score, sig: msg.sig };
       this.logs.push(`req:${reqId} worker-result sig:${result.sig} score:${result.score}`);
+      try { this.recordProfile({ reqId, event: 'worker-result', plan: result.plan, score: result.score, sig: result.sig, profile: msg.profile || null }); } catch (e) {}
       if (msg.profile) {
         try {
           const p = msg.profile;
@@ -643,6 +478,7 @@ export default class AI {
     const reqId = `${Date.now()}-${++this.reqCounter}`;
     this.pendingReqId = reqId;
     this.logs.push(`req:${reqId} start lookahead=${this.lookahead}`);
+    try { this.recordProfile({ reqId, event: 'plan-start', lookahead: this.lookahead, sig: JSON.stringify({ next: state && state.next ? (state.next||[]).slice(0,this.lookahead) : [], hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null }) }); } catch (e) {}
     try {
       // enforce max concurrent workers: if at limit, terminate the oldest to free a slot
       try {
@@ -705,7 +541,7 @@ export default class AI {
         reqId,
         lookahead: this.lookahead,
         weights: { wLines: this.weightLines, wAgg: this.weightAgg, wHoles: this.weightHoles, wBump: this.weightBump, holdPenalty: this.holdPenalty },
-        params: { beamWidthBase: this.beamWidthBase, perNodeLimit: this.perNodeLimit },
+        params: { beamWidthBase: this.beamWidthBase, perNodeLimit: this.perNodeLimit, topK: this.topK },
         state: {
           board: state.board,
           next: (state.next || []).slice(0, this.lookahead),
@@ -717,13 +553,16 @@ export default class AI {
       const w = created.worker;
       const url = created.url;
       this.activeWorkers.set(reqId, { worker: w, url });
+      try { this.recordProfile({ reqId, event: 'worker-created', url }); } catch (e) {}
       w.onmessage = (ev: any) => {
         try {
           try { this.logs.push(`raw-msg:${reqId}:${JSON.stringify(ev.data)}`); } catch (e) {}
           this.onWorkerMessage(ev.data);
         } catch (err) { try { this.logs.push('onmessage handling failed: '+String(err)); } catch(_){} }
       };
-      try { w.postMessage(payload); } catch (e) {
+      // capture worker runtime errors to logs for debugging
+      try { w.onerror = (ev:any) => { try { this.logs.push(`req:${reqId} worker-error-event:${ev && ev.message ? ev.message : String(ev)}`); } catch(e){} }; } catch(e) {}
+      try { w.postMessage(payload); try { this.recordProfile({ reqId, event: 'postMessage-sent', payloadSize: (payload ? JSON.stringify(payload).length : null) }); } catch (e) {} } catch (e) {
         this.logs.push(`req:${reqId} postMessage failed: ${String(e)}`);
         try { this.terminateActiveWorker(reqId); } catch (er) {}
         const fallback = this.syncFallbackPlan(state);
@@ -735,61 +574,71 @@ export default class AI {
       try { this.workerStartTimes.set(reqId, Date.now()); } catch (e) {}
 
       // start per-worker timeout (PLAN_TIMEOUT_MS)
-      if (this.workerTimeouts.has(reqId)) { try { clearTimeout(this.workerTimeouts.get(reqId)); } catch (e) {} this.workerTimeouts.delete(reqId); }
-      this.workerTimeouts.set(reqId, setTimeout(() => {
-        try {
-          if (!this.activeWorkers.has(reqId)) return;
-          this.logs.push(`req:${reqId} timeout, performing sync fallback`);
-          // if a fallback already applied, just terminate this worker
-          if (this.appliedFallbacks.has(reqId)) {
+      if (!this.DISABLE_FALLBACKS) {
+        if (this.workerTimeouts.has(reqId)) { try { clearTimeout(this.workerTimeouts.get(reqId)); } catch (e) {} this.workerTimeouts.delete(reqId); }
+        this.workerTimeouts.set(reqId, setTimeout(() => {
+          try {
+            if (!this.activeWorkers.has(reqId)) return;
+            this.logs.push(`req:${reqId} timeout, performing sync fallback`);
+            // if a fallback already applied, just terminate this worker
+            if (this.appliedFallbacks.has(reqId)) {
+              try {
+                const info = this.activeWorkers.get(reqId);
+                if (info) { try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {} }
+              } catch (e) {}
+              try { this.terminateActiveWorker(reqId); } catch (e) {}
+              this.workerTimeouts.delete(reqId);
+              return;
+            }
+            // cooperative cancel then terminate after grace
             try {
               const info = this.activeWorkers.get(reqId);
-              if (info) { try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {} }
+              if (info) {
+                try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {}
+                setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150);
+              }
             } catch (e) {}
-            try { this.terminateActiveWorker(reqId); } catch (e) {}
-            this.workerTimeouts.delete(reqId);
-            return;
-          }
-          // cooperative cancel then terminate after grace
-          try {
-            const info = this.activeWorkers.get(reqId);
-            if (info) {
-              try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {}
-              setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150);
-            }
-          } catch (e) {}
-          try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-          const fallback = this.syncFallbackPlan(state);
-          try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-          try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
-          this.handlePlanResult(fallback);
-        } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
-        try { this.workerTimeouts.delete(reqId); } catch (e) {}
-      }, this.PLAN_TIMEOUT_MS));
+            try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+            const fallback = this.syncFallbackPlan(state);
+            try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
+            try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
+            try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+            this.handlePlanResult(fallback);
+          } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
+          try { this.workerTimeouts.delete(reqId); } catch (e) {}
+        }, this.PLAN_TIMEOUT_MS));
+      } else {
+        try { this.logs.push(`req:${reqId} fallback timers disabled`); } catch (e) {}
+      }
 
       // start early fallback timer to ensure a quick response if worker is slow
-      if (this.earlyFallbackTimers.has(reqId)) { try { clearTimeout(this.earlyFallbackTimers.get(reqId)); } catch (e) {} this.earlyFallbackTimers.delete(reqId); }
-      this.earlyFallbackTimers.set(reqId, setTimeout(() => {
-        try {
-          if (!this.activeWorkers.has(reqId)) return;
-          this.logs.push(`req:${reqId} early-fallback (ms=${this.EARLY_FALLBACK_MS})`);
-          // apply immediate synchronous fallback but keep the worker running
-          try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-          const fallback = this.syncFallbackPlan(state);
-          // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
+      if (!this.DISABLE_FALLBACKS) {
+        if (this.earlyFallbackTimers.has(reqId)) { try { clearTimeout(this.earlyFallbackTimers.get(reqId)); } catch (e) {} this.earlyFallbackTimers.delete(reqId); }
+        this.earlyFallbackTimers.set(reqId, setTimeout(() => {
           try {
-            let parsed: any = null;
-            try { parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null; } catch (e) { parsed = null; }
-            const snap = { board: state && state.board ? (state.board||[]).map((r:any)=>r.slice()) : null, next: state && state.next ? (state.next||[]).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
-            this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
-          } catch (e) {}
-          try { this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`); } catch (e) {}
-          try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-          try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
-          this.handlePlanResult(fallback);
-        } catch (e) { try { this.logs.push('early-fallback error: ' + String(e)); } catch (er) {} }
-        try { const t = this.earlyFallbackTimers.get(reqId); if (t) { clearTimeout(t); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
-      }, this.EARLY_FALLBACK_MS));
+            if (!this.activeWorkers.has(reqId)) return;
+            this.logs.push(`req:${reqId} early-fallback (ms=${this.EARLY_FALLBACK_MS})`);
+            // apply immediate synchronous fallback but keep the worker running
+            try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+            const fallback = this.syncFallbackPlan(state);
+            // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
+            try {
+              let parsed: any = null;
+              try { parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null; } catch (e) { parsed = null; }
+              const snap = { board: state && state.board ? (state.board||[]).map((r:any)=>r.slice()) : null, next: state && state.next ? (state.next||[]).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
+              this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
+              try { this.recordProfile({ reqId, event: 'early-fallback-applied', sig: fallback.sig, score: fallback.score || 0 }); } catch (e) {}
+            } catch (e) {}
+            try { this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`); } catch (e) {}
+            try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
+            try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+            this.handlePlanResult(fallback);
+          } catch (e) { try { this.logs.push('early-fallback error: ' + String(e)); } catch (er) {} }
+          try { const t = this.earlyFallbackTimers.get(reqId); if (t) { clearTimeout(t); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
+        }, this.EARLY_FALLBACK_MS));
+      } else {
+        try { this.logs.push(`req:${reqId} early-fallback disabled`); } catch (e) {}
+      }
     } catch (e) {
       this.logs.push(`req:${reqId} postMessage failed: ${String(e)}`);
       const fallback = this.syncFallbackPlan(state);

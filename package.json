@@ -14,7 +14,8 @@
     "auto-test:ci": "node ./scripts/auto-test-ci.js",
     "test": "vitest",
     "test:ci": "node ./scripts/test-ci.js",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "aggregate-profiles": "node ./scripts/aggregate_profiles.js"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

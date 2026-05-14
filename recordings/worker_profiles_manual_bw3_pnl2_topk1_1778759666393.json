@@ -1,0 +1,4657 @@
+[
+  {
+    "ts": 1778759646982,
+    "reqId": "1778759646981-1",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"T\",\"O\",\"L\"],\"hold\":null,\"current\":\"I\"}"
+  },
+  {
+    "ts": 1778759646983,
+    "reqId": "1778759646981-1",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759646983,
+    "reqId": "1778759646981-1",
+    "event": "postMessage-sent",
+    "payloadSize": 1416
+  },
+  {
+    "ts": 1778759647054,
+    "reqId": "1778759646981-1",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759647057,
+    "reqId": "1778759646981-1",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 6
+    }
+  },
+  {
+    "ts": 1778759647057,
+    "reqId": "1778759646981-1",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -29,
+    "sig": "{\"next\":[\"T\",\"O\",\"L\"],\"hold\":null,\"current\":{\"type\":\"I\",\"x\":3,\"y\":1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759647109,
+    "reqId": "1778759646981-1",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759647109,
+    "reqId": "1778759646981-1",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -92,
+    "sig": "{\"next\":[\"T\",\"O\",\"L\"],\"hold\":null,\"current\":{\"type\":\"I\",\"x\":3,\"y\":1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 208,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 11
+    }
+  },
+  {
+    "ts": 1778759647155,
+    "reqId": "1778759646981-1",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 7
+    }
+  },
+  {
+    "ts": 1778759647155,
+    "reqId": "1778759646981-1",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": 861,
+    "sig": "{\"next\":[\"T\",\"O\",\"L\"],\"hold\":null,\"current\":{\"type\":\"I\",\"x\":3,\"y\":1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 7
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 414,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 19
+    }
+  },
+  {
+    "ts": 1778759647188,
+    "reqId": "1778759646981-1",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": 861,
+    "sig": "{\"next\":[\"T\",\"O\",\"L\"],\"hold\":null,\"current\":{\"type\":\"I\",\"x\":3,\"y\":1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 7
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 414,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 20
+    }
+  },
+  {
+    "ts": 1778759648018,
+    "reqId": "1778759648018-2",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"J\",\"T\"],\"hold\":null,\"current\":\"Z\"}"
+  },
+  {
+    "ts": 1778759648022,
+    "reqId": "1778759648018-2",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759648022,
+    "reqId": "1778759648018-2",
+    "event": "postMessage-sent",
+    "payloadSize": 1400
+  },
+  {
+    "ts": 1778759648103,
+    "reqId": "1778759648018-2",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759648111,
+    "reqId": "1778759648018-2",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 7
+    }
+  },
+  {
+    "ts": 1778759648111,
+    "reqId": "1778759648018-2",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 0
+    },
+    "score": -704,
+    "sig": "{\"next\":[\"S\",\"J\",\"T\"],\"hold\":null,\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 7
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759648151,
+    "reqId": "1778759648018-2",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 7
+    }
+  },
+  {
+    "ts": 1778759648151,
+    "reqId": "1778759648018-2",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 0
+    },
+    "score": -1437,
+    "sig": "{\"next\":[\"S\",\"J\",\"T\"],\"hold\":null,\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 7
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 19
+    }
+  },
+  {
+    "ts": 1778759648192,
+    "reqId": "1778759648018-2",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 12
+    }
+  },
+  {
+    "ts": 1778759648192,
+    "reqId": "1778759648018-2",
+    "event": "intermediate",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -1169,
+    "sig": "{\"next\":[\"S\",\"J\",\"T\"],\"hold\":null,\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 7
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 12
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 31
+    }
+  },
+  {
+    "ts": 1778759648207,
+    "reqId": "1778759648018-2",
+    "event": "worker-result",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -1169,
+    "sig": "{\"next\":[\"S\",\"J\",\"T\"],\"hold\":null,\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 7
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 12
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 32
+    }
+  },
+  {
+    "ts": 1778759649015,
+    "reqId": "1778759649015-3",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"J\",\"S\",\"O\"],\"hold\":\"T\",\"current\":\"J\"}"
+  },
+  {
+    "ts": 1778759649016,
+    "reqId": "1778759649015-3",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759649016,
+    "reqId": "1778759649015-3",
+    "event": "postMessage-sent",
+    "payloadSize": 1391
+  },
+  {
+    "ts": 1778759649125,
+    "reqId": "1778759649015-3",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759649151,
+    "reqId": "1778759649015-3",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 26
+    }
+  },
+  {
+    "ts": 1778759649154,
+    "reqId": "1778759649015-3",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 6,
+      "rotation": 0
+    },
+    "score": -1034,
+    "sig": "{\"next\":[\"J\",\"S\",\"O\"],\"hold\":\"T\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 26
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 29
+    }
+  },
+  {
+    "ts": 1778759649223,
+    "reqId": "1778759649015-3",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759649223,
+    "reqId": "1778759649015-3",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 6,
+      "rotation": 0
+    },
+    "score": -1022,
+    "sig": "{\"next\":[\"J\",\"S\",\"O\"],\"hold\":\"T\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 26
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 36
+    }
+  },
+  {
+    "ts": 1778759649276,
+    "reqId": "1778759649015-3",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 6
+    }
+  },
+  {
+    "ts": 1778759649276,
+    "reqId": "1778759649015-3",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 6,
+      "rotation": 0
+    },
+    "score": -2039,
+    "sig": "{\"next\":[\"J\",\"S\",\"O\"],\"hold\":\"T\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 26
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 48
+    }
+  },
+  {
+    "ts": 1778759649349,
+    "reqId": "1778759649015-3",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 6,
+      "rotation": 0
+    },
+    "score": -2039,
+    "sig": "{\"next\":[\"J\",\"S\",\"O\"],\"hold\":\"T\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 26
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 5
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 48
+    }
+  },
+  {
+    "ts": 1778759650205,
+    "reqId": "1778759650205-4",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"I\",\"L\",\"J\"],\"hold\":\"T\",\"current\":\"Z\"}"
+  },
+  {
+    "ts": 1778759650205,
+    "reqId": "1778759650205-4",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759650206,
+    "reqId": "1778759650205-4",
+    "event": "postMessage-sent",
+    "payloadSize": 1375
+  },
+  {
+    "ts": 1778759650248,
+    "reqId": "1778759650205-4",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759650253,
+    "reqId": "1778759650205-4",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759650253,
+    "reqId": "1778759650205-4",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 1,
+      "rotation": 1
+    },
+    "score": -1850,
+    "sig": "{\"next\":[\"I\",\"L\",\"J\"],\"hold\":\"T\",\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759650290,
+    "reqId": "1778759650205-4",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759650290,
+    "reqId": "1778759650205-4",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 1,
+      "rotation": 1
+    },
+    "score": -2644,
+    "sig": "{\"next\":[\"I\",\"L\",\"J\"],\"hold\":\"T\",\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759650317,
+    "reqId": "1778759650205-4",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759650317,
+    "reqId": "1778759650205-4",
+    "event": "intermediate",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -4452,
+    "sig": "{\"next\":[\"I\",\"L\",\"J\"],\"hold\":\"T\",\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 12
+    }
+  },
+  {
+    "ts": 1778759650326,
+    "reqId": "1778759650205-4",
+    "event": "worker-result",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -4452,
+    "sig": "{\"next\":[\"I\",\"L\",\"J\"],\"hold\":\"T\",\"current\":{\"type\":\"Z\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 12
+    }
+  },
+  {
+    "ts": 1778759651127,
+    "reqId": "1778759651127-5",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"J\",\"S\",\"L\"],\"hold\":\"L\",\"current\":\"T\"}"
+  },
+  {
+    "ts": 1778759651127,
+    "reqId": "1778759651127-5",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759651128,
+    "reqId": "1778759651127-5",
+    "event": "postMessage-sent",
+    "payloadSize": 1367
+  },
+  {
+    "ts": 1778759651159,
+    "reqId": "1778759651127-5",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759651163,
+    "reqId": "1778759651127-5",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759651164,
+    "reqId": "1778759651127-5",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 1
+    },
+    "score": -1898,
+    "sig": "{\"next\":[\"J\",\"S\",\"L\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759651187,
+    "reqId": "1778759651127-5",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759651187,
+    "reqId": "1778759651127-5",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 1
+    },
+    "score": -3820,
+    "sig": "{\"next\":[\"J\",\"S\",\"L\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759651207,
+    "reqId": "1778759651127-5",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759651207,
+    "reqId": "1778759651127-5",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 1
+    },
+    "score": -5761,
+    "sig": "{\"next\":[\"J\",\"S\",\"L\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 3
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 10
+    }
+  },
+  {
+    "ts": 1778759651228,
+    "reqId": "1778759651127-5",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 3,
+      "rotation": 1
+    },
+    "score": -5761,
+    "sig": "{\"next\":[\"J\",\"S\",\"L\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 3
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 11
+    }
+  },
+  {
+    "ts": 1778759652048,
+    "reqId": "1778759652048-6",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"O\",\"Z\",\"T\"],\"hold\":\"L\",\"current\":\"I\"}"
+  },
+  {
+    "ts": 1778759652048,
+    "reqId": "1778759652048-6",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759652048,
+    "reqId": "1778759652048-6",
+    "event": "postMessage-sent",
+    "payloadSize": 1351
+  },
+  {
+    "ts": 1778759652086,
+    "reqId": "1778759652048-6",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759652089,
+    "reqId": "1778759652048-6",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759652089,
+    "reqId": "1778759652048-6",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 7,
+      "rotation": 1
+    },
+    "score": -1664,
+    "sig": "{\"next\":[\"O\",\"Z\",\"T\"],\"hold\":\"L\",\"current\":{\"type\":\"I\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759652135,
+    "reqId": "1778759652048-6",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759652135,
+    "reqId": "1778759652048-6",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 7,
+      "rotation": 1
+    },
+    "score": -4352,
+    "sig": "{\"next\":[\"O\",\"Z\",\"T\"],\"hold\":\"L\",\"current\":{\"type\":\"I\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 208,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759652166,
+    "reqId": "1778759652048-6",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759652166,
+    "reqId": "1778759652048-6",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 7,
+      "rotation": 1
+    },
+    "score": -7084,
+    "sig": "{\"next\":[\"O\",\"Z\",\"T\"],\"hold\":\"L\",\"current\":{\"type\":\"I\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 412,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759652203,
+    "reqId": "1778759652048-6",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 7,
+      "rotation": 1
+    },
+    "score": -7084,
+    "sig": "{\"next\":[\"O\",\"Z\",\"T\"],\"hold\":\"L\",\"current\":{\"type\":\"I\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 412,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759653034,
+    "reqId": "1778759653034-7",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"Z\",\"L\",\"O\"],\"hold\":\"L\",\"current\":\"J\"}"
+  },
+  {
+    "ts": 1778759653035,
+    "reqId": "1778759653034-7",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759653035,
+    "reqId": "1778759653034-7",
+    "event": "postMessage-sent",
+    "payloadSize": 1345
+  },
+  {
+    "ts": 1778759653105,
+    "reqId": "1778759653034-7",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759653110,
+    "reqId": "1778759653034-7",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759653110,
+    "reqId": "1778759653034-7",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 1
+    },
+    "score": -3470,
+    "sig": "{\"next\":[\"Z\",\"L\",\"O\"],\"hold\":\"L\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759653162,
+    "reqId": "1778759653034-7",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 7
+    }
+  },
+  {
+    "ts": 1778759653162,
+    "reqId": "1778759653034-7",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 1
+    },
+    "score": -6989,
+    "sig": "{\"next\":[\"Z\",\"L\",\"O\"],\"hold\":\"L\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 12
+    }
+  },
+  {
+    "ts": 1778759653193,
+    "reqId": "1778759653034-7",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759653193,
+    "reqId": "1778759653034-7",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 1
+    },
+    "score": -10487,
+    "sig": "{\"next\":[\"Z\",\"L\",\"O\"],\"hold\":\"L\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 3,
+      "placementCacheMisses": 9,
+      "placementGeneratedCount": 306,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 9,
+      "placementCacheMaxObserved": 9,
+      "totalTimeMs": 14
+    }
+  },
+  {
+    "ts": 1778759653225,
+    "reqId": "1778759653034-7",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 1
+    },
+    "score": -10487,
+    "sig": "{\"next\":[\"Z\",\"L\",\"O\"],\"hold\":\"L\",\"current\":{\"type\":\"J\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 7
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 3,
+      "placementCacheMisses": 9,
+      "placementGeneratedCount": 306,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 9,
+      "placementCacheMaxObserved": 9,
+      "totalTimeMs": 15
+    }
+  },
+  {
+    "ts": 1778759654060,
+    "reqId": "1778759654060-8",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\"],\"hold\":\"L\",\"current\":\"T\"}"
+  },
+  {
+    "ts": 1778759654061,
+    "reqId": "1778759654060-8",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759654061,
+    "reqId": "1778759654060-8",
+    "event": "postMessage-sent",
+    "payloadSize": 1329
+  },
+  {
+    "ts": 1778759654103,
+    "reqId": "1778759654060-8",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759654109,
+    "reqId": "1778759654060-8",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 6
+    }
+  },
+  {
+    "ts": 1778759654109,
+    "reqId": "1778759654060-8",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 8,
+      "rotation": 3
+    },
+    "score": -4195,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759654154,
+    "reqId": "1778759654060-8",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759654154,
+    "reqId": "1778759654060-8",
+    "event": "intermediate",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -8429,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 10
+    }
+  },
+  {
+    "ts": 1778759654158,
+    "reqId": "1778759654060-8",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759654158,
+    "reqId": "1778759654060-8",
+    "event": "intermediate",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -12607,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 13
+    }
+  },
+  {
+    "ts": 1778759654158,
+    "reqId": "1778759654060-8",
+    "event": "worker-result",
+    "plan": {
+      "action": "hold",
+      "slot": 1
+    },
+    "score": -12607,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\"],\"hold\":\"L\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 13
+    }
+  },
+  {
+    "ts": 1778759654963,
+    "reqId": "1778759654963-9",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"I\",\"J\",\"O\"],\"hold\":\"S\",\"current\":\"L\"}"
+  },
+  {
+    "ts": 1778759654964,
+    "reqId": "1778759654963-9",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759654964,
+    "reqId": "1778759654963-9",
+    "event": "postMessage-sent",
+    "payloadSize": 1325
+  },
+  {
+    "ts": 1778759655004,
+    "reqId": "1778759654963-9",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759655009,
+    "reqId": "1778759654963-9",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759655009,
+    "reqId": "1778759654963-9",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": -2,
+      "rotation": 1
+    },
+    "score": -4224,
+    "sig": "{\"next\":[\"I\",\"J\",\"O\"],\"hold\":\"S\",\"current\":{\"type\":\"L\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759655056,
+    "reqId": "1778759654963-9",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759655056,
+    "reqId": "1778759654963-9",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": -2,
+      "rotation": 1
+    },
+    "score": -8432,
+    "sig": "{\"next\":[\"I\",\"J\",\"O\"],\"hold\":\"S\",\"current\":{\"type\":\"L\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759655090,
+    "reqId": "1778759654963-9",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759655090,
+    "reqId": "1778759654963-9",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": -2,
+      "rotation": 1
+    },
+    "score": -12694,
+    "sig": "{\"next\":[\"I\",\"J\",\"O\"],\"hold\":\"S\",\"current\":{\"type\":\"L\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 12
+    }
+  },
+  {
+    "ts": 1778759655119,
+    "reqId": "1778759654963-9",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": -2,
+      "rotation": 1
+    },
+    "score": -12694,
+    "sig": "{\"next\":[\"I\",\"J\",\"O\"],\"hold\":\"S\",\"current\":{\"type\":\"L\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 4
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 12
+    }
+  },
+  {
+    "ts": 1778759655948,
+    "reqId": "1778759655948-10",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"Z\",\"I\",\"S\"],\"hold\":\"S\",\"current\":\"T\"}"
+  },
+  {
+    "ts": 1778759655948,
+    "reqId": "1778759655948-10",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759655948,
+    "reqId": "1778759655948-10",
+    "event": "postMessage-sent",
+    "payloadSize": 1310
+  },
+  {
+    "ts": 1778759655997,
+    "reqId": "1778759655948-10",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759656001,
+    "reqId": "1778759655948-10",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759656001,
+    "reqId": "1778759655948-10",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -5358,
+    "sig": "{\"next\":[\"Z\",\"I\",\"S\"],\"hold\":\"S\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759656018,
+    "reqId": "1778759655948-10",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 4,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759656019,
+    "reqId": "1778759655948-10",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -10750,
+    "sig": "{\"next\":[\"Z\",\"I\",\"S\"],\"hold\":\"S\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 6,
+      "placementGeneratedCount": 204,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 6,
+      "placementCacheMaxObserved": 6,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759656036,
+    "reqId": "1778759655948-10",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 3,
+      "placementsConsidered": 6,
+      "nextMapSize": 6,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759656036,
+    "reqId": "1778759655948-10",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16126,
+    "sig": "{\"next\":[\"Z\",\"I\",\"S\"],\"hold\":\"S\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 11
+    }
+  },
+  {
+    "ts": 1778759656088,
+    "reqId": "1778759655948-10",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16126,
+    "sig": "{\"next\":[\"Z\",\"I\",\"S\"],\"hold\":\"S\",\"current\":{\"type\":\"T\",\"x\":3,\"y\":0,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 4,
+          "timeMs": 2
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 3,
+          "placementsConsidered": 6,
+          "nextMapSize": 6,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 0,
+      "placementCacheMisses": 12,
+      "placementGeneratedCount": 408,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 12,
+      "placementCacheMaxObserved": 12,
+      "totalTimeMs": 11
+    }
+  },
+  {
+    "ts": 1778759656931,
+    "reqId": "1778759656930-11",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759656932,
+    "reqId": "1778759656930-11",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759656932,
+    "reqId": "1778759656930-11",
+    "event": "postMessage-sent",
+    "payloadSize": 1295
+  },
+  {
+    "ts": 1778759656983,
+    "reqId": "1778759656930-11",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759656986,
+    "reqId": "1778759656930-11",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759656987,
+    "reqId": "1778759656930-11",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8332,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 3
+    }
+  },
+  {
+    "ts": 1778759656998,
+    "reqId": "1778759656930-11",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759656998,
+    "reqId": "1778759656930-11",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16664,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759657006,
+    "reqId": "1778759656930-11",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759657006,
+    "reqId": "1778759656930-11",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -24996,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759657013,
+    "reqId": "1778759656930-11",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -24996,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759657828,
+    "reqId": "1778759657828-12",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759657828,
+    "reqId": "1778759657828-12",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759657829,
+    "reqId": "1778759657828-12",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759657869,
+    "reqId": "1778759657828-12",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759657872,
+    "reqId": "1778759657828-12",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759657872,
+    "reqId": "1778759657828-12",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 3
+    }
+  },
+  {
+    "ts": 1778759657876,
+    "reqId": "1778759657828-12",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759657876,
+    "reqId": "1778759657828-12",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 2
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 3
+    }
+  },
+  {
+    "ts": 1778759657881,
+    "reqId": "1778759657828-12",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759657881,
+    "reqId": "1778759657828-12",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 2
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759657889,
+    "reqId": "1778759657828-12",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 2
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759658711,
+    "reqId": "1778759658711-13",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759658711,
+    "reqId": "1778759658711-13",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759658711,
+    "reqId": "1778759658711-13",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759658744,
+    "reqId": "1778759658711-13",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759658748,
+    "reqId": "1778759658711-13",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759658748,
+    "reqId": "1778759658711-13",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759658755,
+    "reqId": "1778759658711-13",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759658755,
+    "reqId": "1778759658711-13",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759658762,
+    "reqId": "1778759658711-13",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759658762,
+    "reqId": "1778759658711-13",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759658773,
+    "reqId": "1778759658711-13",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759659595,
+    "reqId": "1778759659595-14",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759659596,
+    "reqId": "1778759659595-14",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759659596,
+    "reqId": "1778759659595-14",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759659640,
+    "reqId": "1778759659595-14",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759659643,
+    "reqId": "1778759659595-14",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759659644,
+    "reqId": "1778759659595-14",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 3
+    }
+  },
+  {
+    "ts": 1778759659651,
+    "reqId": "1778759659595-14",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759659652,
+    "reqId": "1778759659595-14",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759659661,
+    "reqId": "1778759659595-14",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759659662,
+    "reqId": "1778759659595-14",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759659670,
+    "reqId": "1778759659595-14",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759660495,
+    "reqId": "1778759660495-15",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759660496,
+    "reqId": "1778759660495-15",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759660496,
+    "reqId": "1778759660495-15",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759660574,
+    "reqId": "1778759660495-15",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759660580,
+    "reqId": "1778759660495-15",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 6
+    }
+  },
+  {
+    "ts": 1778759660581,
+    "reqId": "1778759660495-15",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759660598,
+    "reqId": "1778759660495-15",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759660598,
+    "reqId": "1778759660495-15",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 7
+    }
+  },
+  {
+    "ts": 1778759660614,
+    "reqId": "1778759660495-15",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759660614,
+    "reqId": "1778759660495-15",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 10
+    }
+  },
+  {
+    "ts": 1778759660645,
+    "reqId": "1778759660495-15",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 10
+    }
+  },
+  {
+    "ts": 1778759661475,
+    "reqId": "1778759661475-16",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759661476,
+    "reqId": "1778759661475-16",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759661476,
+    "reqId": "1778759661475-16",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759661553,
+    "reqId": "1778759661475-16",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759661556,
+    "reqId": "1778759661475-16",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 3
+    }
+  },
+  {
+    "ts": 1778759661556,
+    "reqId": "1778759661475-16",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 3
+    }
+  },
+  {
+    "ts": 1778759661564,
+    "reqId": "1778759661475-16",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759661564,
+    "reqId": "1778759661475-16",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759661572,
+    "reqId": "1778759661475-16",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759661572,
+    "reqId": "1778759661475-16",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759661586,
+    "reqId": "1778759661475-16",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 3
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759662398,
+    "reqId": "1778759662398-17",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759662399,
+    "reqId": "1778759662398-17",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759662399,
+    "reqId": "1778759662398-17",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759662464,
+    "reqId": "1778759662398-17",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759662470,
+    "reqId": "1778759662398-17",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759662470,
+    "reqId": "1778759662398-17",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759662481,
+    "reqId": "1778759662398-17",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759662481,
+    "reqId": "1778759662398-17",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 7
+    }
+  },
+  {
+    "ts": 1778759662489,
+    "reqId": "1778759662398-17",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759662489,
+    "reqId": "1778759662398-17",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759662499,
+    "reqId": "1778759662398-17",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 10
+    }
+  },
+  {
+    "ts": 1778759663310,
+    "reqId": "1778759663310-18",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759663311,
+    "reqId": "1778759663310-18",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759663311,
+    "reqId": "1778759663310-18",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759663356,
+    "reqId": "1778759663310-18",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759663361,
+    "reqId": "1778759663310-18",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759663361,
+    "reqId": "1778759663310-18",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759663368,
+    "reqId": "1778759663310-18",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759663368,
+    "reqId": "1778759663310-18",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759663376,
+    "reqId": "1778759663310-18",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759663376,
+    "reqId": "1778759663310-18",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759663392,
+    "reqId": "1778759663310-18",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759664206,
+    "reqId": "1778759664206-19",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759664206,
+    "reqId": "1778759664206-19",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759664206,
+    "reqId": "1778759664206-19",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759664281,
+    "reqId": "1778759664206-19",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759664287,
+    "reqId": "1778759664206-19",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 6
+    }
+  },
+  {
+    "ts": 1778759664287,
+    "reqId": "1778759664206-19",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759664299,
+    "reqId": "1778759664206-19",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759664299,
+    "reqId": "1778759664206-19",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 7
+    }
+  },
+  {
+    "ts": 1778759664309,
+    "reqId": "1778759664206-19",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759664309,
+    "reqId": "1778759664206-19",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759664330,
+    "reqId": "1778759664206-19",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 6
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 9
+    }
+  },
+  {
+    "ts": 1778759665155,
+    "reqId": "1778759665155-20",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759665156,
+    "reqId": "1778759665155-20",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759665156,
+    "reqId": "1778759665155-20",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759665248,
+    "reqId": "1778759665155-20",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759665252,
+    "reqId": "1778759665155-20",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 4
+    }
+  },
+  {
+    "ts": 1778759665253,
+    "reqId": "1778759665155-20",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 4
+    }
+  },
+  {
+    "ts": 1778759665261,
+    "reqId": "1778759665155-20",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 0
+    }
+  },
+  {
+    "ts": 1778759665261,
+    "reqId": "1778759665155-20",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759665268,
+    "reqId": "1778759665155-20",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759665268,
+    "reqId": "1778759665155-20",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 7
+    }
+  },
+  {
+    "ts": 1778759665276,
+    "reqId": "1778759665155-20",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 4
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 0
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 7
+    }
+  },
+  {
+    "ts": 1778759666089,
+    "reqId": "1778759666089-21",
+    "event": "plan-start",
+    "lookahead": 3,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":\"S\"}"
+  },
+  {
+    "ts": 1778759666090,
+    "reqId": "1778759666089-21",
+    "event": "worker-created",
+    "url": "/dist/ai_worker.js"
+  },
+  {
+    "ts": 1778759666091,
+    "reqId": "1778759666089-21",
+    "event": "postMessage-sent",
+    "payloadSize": 1290
+  },
+  {
+    "ts": 1778759666174,
+    "reqId": "1778759666089-21",
+    "event": "progress",
+    "progress": {
+      "started": true
+    }
+  },
+  {
+    "ts": 1778759666180,
+    "reqId": "1778759666089-21",
+    "event": "progress",
+    "progress": {
+      "depth": 0,
+      "expandedNodes": 1,
+      "placementsConsidered": 2,
+      "nextMapSize": 2,
+      "timeMs": 5
+    }
+  },
+  {
+    "ts": 1778759666180,
+    "reqId": "1778759666089-21",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -8362,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        }
+      ],
+      "placementCacheHits": 1,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 5
+    }
+  },
+  {
+    "ts": 1778759666188,
+    "reqId": "1778759666089-21",
+    "event": "progress",
+    "progress": {
+      "depth": 1,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 1
+    }
+  },
+  {
+    "ts": 1778759666188,
+    "reqId": "1778759666089-21",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -16724,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        }
+      ],
+      "placementCacheHits": 5,
+      "placementCacheMisses": 1,
+      "placementGeneratedCount": 34,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 1,
+      "placementCacheMaxObserved": 1,
+      "totalTimeMs": 6
+    }
+  },
+  {
+    "ts": 1778759666197,
+    "reqId": "1778759666089-21",
+    "event": "progress",
+    "progress": {
+      "depth": 2,
+      "expandedNodes": 2,
+      "placementsConsidered": 4,
+      "nextMapSize": 2,
+      "timeMs": 2
+    }
+  },
+  {
+    "ts": 1778759666197,
+    "reqId": "1778759666089-21",
+    "event": "intermediate",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 8
+    }
+  },
+  {
+    "ts": 1778759666211,
+    "reqId": "1778759666089-21",
+    "event": "worker-result",
+    "plan": {
+      "action": "place",
+      "x": 0,
+      "rotation": 0
+    },
+    "score": -25086,
+    "sig": "{\"next\":[\"S\",\"L\",\"T\"],\"hold\":\"S\",\"current\":{\"type\":\"S\",\"x\":3,\"y\":-1,\"rotation\":0}}",
+    "profile": {
+      "depthProfile": [
+        {
+          "depth": 0,
+          "expandedNodes": 1,
+          "placementsConsidered": 2,
+          "nextMapSize": 2,
+          "timeMs": 5
+        },
+        {
+          "depth": 1,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 1
+        },
+        {
+          "depth": 2,
+          "expandedNodes": 2,
+          "placementsConsidered": 4,
+          "nextMapSize": 2,
+          "timeMs": 2
+        }
+      ],
+      "placementCacheHits": 8,
+      "placementCacheMisses": 2,
+      "placementGeneratedCount": 68,
+      "placementCacheEvictions": 0,
+      "placementCacheFallbacks": 0,
+      "placementCacheSize": 2,
+      "placementCacheMaxObserved": 2,
+      "totalTimeMs": 8
+    }
+  }
+]

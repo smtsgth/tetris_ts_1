@@ -238,6 +238,8 @@ export default function attachInputSettings(input) {
                         const beamN = document.getElementById('ai-beamwidth-number');
                         const perNodeR = document.getElementById('ai-pernode-range');
                         const perNodeN = document.getElementById('ai-pernode-number');
+                        const topKR = document.getElementById('ai-topk-range');
+                        const topKN = document.getElementById('ai-topk-number');
                         if (ai) {
                             if (beamR && beamN && typeof ai.getBeamWidthBase === 'function') {
                                 const cur = ai.getBeamWidthBase();
@@ -264,6 +266,19 @@ export default function attachInputSettings(input) {
                                     ai.setPerNodeLimit(v);
                                 }
                                 catch (e) { } perNodeR.value = String(v); });
+                            }
+                            if (topKR && topKN && typeof ai.getTopK === 'function') {
+                                const cur = ai.getTopK();
+                                topKR.value = String(cur);
+                                topKN.value = String(cur);
+                                topKR.addEventListener('input', () => { const v = Number(topKR.value); try {
+                                    ai.setTopK(v);
+                                }
+                                catch (e) { } topKN.value = String(v); });
+                                topKN.addEventListener('change', () => { const v = Number(topKN.value); try {
+                                    ai.setTopK(v);
+                                }
+                                catch (e) { } topKR.value = String(v); });
                             }
                         }
                     }

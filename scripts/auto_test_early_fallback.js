@@ -223,6 +223,34 @@ async function run() {
       fs.writeFileSync(outPath, JSON.stringify(res, null, 2), 'utf8');
       console.log('Saved result to', outPath);
 
+      // attempt to capture in-memory worker profiles exposed by the runtime
+      try {
+        let profiles = null;
+        try {
+          profiles = await page.evaluate(() => {
+            try { if (window.ai && typeof window.ai.exportProfilesToWindow === 'function') { window.ai.exportProfilesToWindow(); } } catch (e) {}
+            try { return window.__workerProfiles || null; } catch (e) { return null; }
+          });
+        } catch (e) {
+          try { fs.appendFileSync(path.join(RESULTS_DIR, `profile_capture_error_${ms}_${Date.now()}.log`), (e && e.stack) ? e.stack : String(e)); } catch (er) {}
+        }
+        if (profiles) {
+          try {
+            const profPath = path.join(RESULTS_DIR, `worker_profiles_${ms}_${Date.now()}.json`);
+            fs.writeFileSync(profPath, JSON.stringify(profiles, null, 2), 'utf8');
+            res.profilesPath = profPath;
+            recordEvent({ type: 'profiles-saved', earlyFallbackMs: ms, path: profPath });
+            console.log('Saved profiles to', profPath);
+          } catch (e) {
+            try { fs.appendFileSync(path.join(RESULTS_DIR, `profile_write_error_${ms}_${Date.now()}.log`), (e && e.stack) ? e.stack : String(e)); } catch (er) {}
+          }
+        } else {
+          recordEvent({ type: 'profiles-not-found', earlyFallbackMs: ms });
+        }
+      } catch (e) {
+        try { fs.appendFileSync(path.join(RESULTS_DIR, `profile_capture_outer_error_${ms}_${Date.now()}.log`), (e && e.stack) ? e.stack : String(e)); } catch (er) {}
+      }
+
       await browser.close();
       browser = null;
     } catch (e) {

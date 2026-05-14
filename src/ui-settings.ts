@@ -155,6 +155,8 @@ export default function attachInputSettings(input: Input) {
             const beamN = document.getElementById('ai-beamwidth-number') as HTMLInputElement | null;
             const perNodeR = document.getElementById('ai-pernode-range') as HTMLInputElement | null;
             const perNodeN = document.getElementById('ai-pernode-number') as HTMLInputElement | null;
+            const topKR = document.getElementById('ai-topk-range') as HTMLInputElement | null;
+            const topKN = document.getElementById('ai-topk-number') as HTMLInputElement | null;
             if (ai) {
               if (beamR && beamN && typeof ai.getBeamWidthBase === 'function') {
                 const cur = ai.getBeamWidthBase(); beamR.value = String(cur); beamN.value = String(cur);
@@ -165,6 +167,11 @@ export default function attachInputSettings(input: Input) {
                 const cur = ai.getPerNodeLimit(); perNodeR.value = String(cur); perNodeN.value = String(cur);
                 perNodeR.addEventListener('input', () => { const v = Number(perNodeR.value); try { ai.setPerNodeLimit(v); } catch (e) {} perNodeN.value = String(v); });
                 perNodeN.addEventListener('change', () => { const v = Number(perNodeN.value); try { ai.setPerNodeLimit(v); } catch (e) {} perNodeR.value = String(v); });
+              }
+              if (topKR && topKN && typeof ai.getTopK === 'function') {
+                const cur = ai.getTopK(); topKR.value = String(cur); topKN.value = String(cur);
+                topKR.addEventListener('input', () => { const v = Number(topKR.value); try { ai.setTopK(v); } catch (e) {} topKN.value = String(v); });
+                topKN.addEventListener('change', () => { const v = Number(topKN.value); try { ai.setTopK(v); } catch (e) {} topKR.value = String(v); });
               }
             }
           } catch (e) { }

@@ -1,0 +1,54 @@
+[
+  {
+    "ts": 1778674894763,
+    "reqId": "1778674894762-1",
+    "event": "plan-start",
+    "lookahead": 6,
+    "sig": "{\"next\":[\"S\",\"I\",\"J\",\"T\",\"Z\",\"O\"],\"hold\":null,\"current\":\"L\"}"
+  },
+  {
+    "ts": 1778674894771,
+    "reqId": "1778674894762-1",
+    "event": "worker-created",
+    "url": "blob:http://127.0.0.1:22846/cbf1721d-b002-4b2e-914f-142ea8cbae53"
+  },
+  {
+    "ts": 1778674894772,
+    "reqId": "1778674894762-1",
+    "event": "postMessage-sent",
+    "payloadSize": 1419
+  },
+  {
+    "ts": 1778674914781,
+    "reqId": "1778674894762-1",
+    "event": "timeout-fallback-applied",
+    "sig": "{\"next\":[\"S\",\"I\",\"J\",\"T\",\"Z\",\"O\"],\"hold\":null,\"current\":\"L\"}",
+    "score": -68
+  },
+  {
+    "ts": 1778674914811,
+    "reqId": "1778674894762-1",
+    "event": "early-fallback-applied",
+    "sig": "{\"next\":[\"S\",\"I\",\"J\",\"T\",\"Z\",\"O\"],\"hold\":null,\"current\":\"L\"}",
+    "score": -374
+  },
+  {
+    "ts": 1778674915635,
+    "reqId": "1778674915635-2",
+    "event": "plan-start",
+    "lookahead": 6,
+    "sig": "{\"next\":[\"T\",\"Z\",\"O\",\"Z\",\"O\",\"T\"],\"hold\":null,\"current\":\"J\"}"
+  },
+  {
+    "ts": 1778674915635,
+    "reqId": "1778674915635-2",
+    "event": "worker-created",
+    "url": "blob:http://127.0.0.1:22846/cbf1721d-b002-4b2e-914f-142ea8cbae53"
+  },
+  {
+    "ts": 1778674915636,
+    "reqId": "1778674915635-2",
+    "event": "postMessage-sent",
+    "payloadSize": 1407
+  }
+]

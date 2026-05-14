@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const REC_DIR = path.resolve(__dirname, '..', 'recordings');
+const REC_DIR = process.env.REC_DIR ? path.resolve(process.env.REC_DIR) : path.resolve(__dirname, '..', 'recordings');
 function listFiles() { try { return fs.readdirSync(REC_DIR); } catch (e) { console.error('recordings directory not found:', REC_DIR); process.exit(2); } }
 function tsFrom(name) { const m = name.match(/_(\d{10,})/); return m ? Number(m[1]) : null; }
 function readJson(name) { try { return JSON.parse(fs.readFileSync(path.join(REC_DIR, name), 'utf8')); } catch (e) { return null; } }

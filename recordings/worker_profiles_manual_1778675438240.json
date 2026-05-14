@@ -1,0 +1,21 @@
+[
+  {
+    "ts": 1778675417017,
+    "reqId": "1778675417016-1",
+    "event": "plan-start",
+    "lookahead": 6,
+    "sig": "{\"next\":[\"S\",\"I\",\"L\",\"J\",\"O\",\"T\"],\"hold\":null,\"current\":\"Z\"}"
+  },
+  {
+    "ts": 1778675417020,
+    "reqId": "1778675417016-1",
+    "event": "worker-created",
+    "url": "blob:http://127.0.0.1:23293/2ec70e25-2ce8-4821-bbb5-4f5a46d8a7fd"
+  },
+  {
+    "ts": 1778675417021,
+    "reqId": "1778675417016-1",
+    "event": "postMessage-sent",
+    "payloadSize": 1419
+  }
+]

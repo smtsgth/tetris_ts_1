@@ -1,0 +1,54 @@
+[
+  {
+    "ts": 1778674972840,
+    "reqId": "1778674972840-1",
+    "event": "plan-start",
+    "lookahead": 6,
+    "sig": "{\"next\":[\"J\",\"L\",\"Z\",\"S\",\"T\",\"O\"],\"hold\":null,\"current\":\"I\"}"
+  },
+  {
+    "ts": 1778674972844,
+    "reqId": "1778674972840-1",
+    "event": "worker-created",
+    "url": "blob:http://127.0.0.1:26288/082e1114-780d-46ee-a7ef-5da83164977e"
+  },
+  {
+    "ts": 1778674972844,
+    "reqId": "1778674972840-1",
+    "event": "postMessage-sent",
+    "payloadSize": 1419
+  },
+  {
+    "ts": 1778674992855,
+    "reqId": "1778674972840-1",
+    "event": "timeout-fallback-applied",
+    "sig": "{\"next\":[\"J\",\"L\",\"Z\",\"S\",\"T\",\"O\"],\"hold\":null,\"current\":\"I\"}",
+    "score": -68
+  },
+  {
+    "ts": 1778674992882,
+    "reqId": "1778674972840-1",
+    "event": "early-fallback-applied",
+    "sig": "{\"next\":[\"J\",\"L\",\"Z\",\"S\",\"T\",\"O\"],\"hold\":null,\"current\":\"I\"}",
+    "score": -112
+  },
+  {
+    "ts": 1778674993708,
+    "reqId": "1778674993708-2",
+    "event": "plan-start",
+    "lookahead": 6,
+    "sig": "{\"next\":[\"S\",\"T\",\"O\",\"L\",\"J\",\"T\"],\"hold\":null,\"current\":\"Z\"}"
+  },
+  {
+    "ts": 1778674993708,
+    "reqId": "1778674993708-2",
+    "event": "worker-created",
+    "url": "blob:http://127.0.0.1:26288/082e1114-780d-46ee-a7ef-5da83164977e"
+  },
+  {
+    "ts": 1778674993708,
+    "reqId": "1778674993708-2",
+    "event": "postMessage-sent",
+    "payloadSize": 1407
+  }
+]

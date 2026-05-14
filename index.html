@@ -60,6 +60,18 @@
             <input id="ai-lookahead-range" type="range" min="1" max="6" step="1" aria-label="AI 先読みスライダー" value="6">
             <input id="ai-lookahead-number" type="number" min="1" max="6" step="1" aria-label="AI 先読み数" value="6">
           </div>
+          <div class="setting-row"><label for="ai-beamwidth-range">Beam Width</label>
+            <input id="ai-beamwidth-range" type="range" min="1" max="8" step="1" aria-label="AI ビーム幅" value="3">
+            <input id="ai-beamwidth-number" type="number" min="1" max="8" step="1" aria-label="AI ビーム幅数値" value="3">
+          </div>
+          <div class="setting-row"><label for="ai-pernode-range">Per-Node Limit</label>
+            <input id="ai-pernode-range" type="range" min="1" max="8" step="1" aria-label="AI ノード当たり制限" value="2">
+            <input id="ai-pernode-number" type="number" min="1" max="8" step="1" aria-label="AI ノード当たり数値" value="2">
+          </div>
+          <div class="setting-row"><label for="ai-topk-range">Top K</label>
+            <input id="ai-topk-range" type="range" min="1" max="8" step="1" aria-label="AI Top K" value="1">
+            <input id="ai-topk-number" type="number" min="1" max="8" step="1" aria-label="AI Top K 数値" value="1">
+          </div>
           <div class="setting-row"><label for="ai-disable-input">AI中入力ロック</label><input id="ai-disable-input" type="checkbox" checked></div>
           <div class="setting-row"><label for="allow-hold1">Allow Hold1</label><input id="allow-hold1" type="checkbox" checked></div>
           <div class="setting-row"><label for="allow-hold2">Allow Hold2</label><input id="allow-hold2" type="checkbox" checked></div>
