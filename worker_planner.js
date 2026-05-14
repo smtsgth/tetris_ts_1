@@ -86,7 +86,7 @@
     let PLACEMENT_CACHE_MAX = DEFAULT_PLACEMENT_CACHE_MAX;
     let placementCacheHits = 0, placementCacheMisses = 0, placementGeneratedCount = 0;
     let placementCacheEvictions = 0, placementCacheFallbacks = 0, placementCacheMaxObserved = 0;
-    let TOP_K = 1; // profiling default
+    let TOP_K = 2; // profiling default (updated from analysis)
 
     function getCacheKey(bHash, type/*, topK*/) { return bHash + '|' + type; }
     function cacheMetricsSnapshot() { return { placementCacheHits: placementCacheHits, placementCacheMisses: placementCacheMisses, placementGeneratedCount: placementGeneratedCount, placementCacheEvictions: placementCacheEvictions, placementCacheFallbacks: placementCacheFallbacks, placementCacheSize: placementCache.size, placementCacheMaxObserved: placementCacheMaxObserved }; }
@@ -170,8 +170,8 @@
         // allow callers to tune cache max size per-request
         if (typeof params.cacheMaxSize !== 'undefined' && !isNaN(Number(params.cacheMaxSize))) { PLACEMENT_CACHE_MAX = Math.max(32, Math.floor(Number(params.cacheMaxSize))); }
         const beamWidthBaseMsg = Number(params.beamWidthBase) || 3;
-        let perNodeLimitMsg = Number(params.perNodeLimit) || 2;
-        let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 1;
+        let perNodeLimitMsg = Number(params.perNodeLimit) || 1;
+        let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 2;
         // adapt work amount based on provided timeoutMs or fastMode hint
         if (typeof params.timeoutMs === 'number') { if (params.timeoutMs <= 700) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); } else if (params.timeoutMs <= 1500) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 4); topKMsg = Math.min(topKMsg, 3); } }
         if (params.fastMode) { perNodeLimitMsg = Math.min(perNodeLimitMsg, 2); topKMsg = Math.min(topKMsg, 2); }
