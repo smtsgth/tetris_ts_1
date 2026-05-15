@@ -168,6 +168,27 @@ export default class AI {
     getPerNodeLimit() { return this.perNodeLimit; }
     setTopK(n) { this.topK = Math.max(1, Math.floor(Number(n) || 1)); }
     getTopK() { return this.topK; }
+    // runtime tuning accessors for fallback/worker behavior
+    setPlanTimeoutMs(n) { this.PLAN_TIMEOUT_MS = Math.max(0, Math.floor(Number(n) || 0)); }
+    getPlanTimeoutMs() { return this.PLAN_TIMEOUT_MS; }
+    setRepeatPlanThreshold(n) { this.REPEAT_PLAN_THRESHOLD = Math.max(0, Math.floor(Number(n) || 0)); }
+    getRepeatPlanThreshold() { return this.REPEAT_PLAN_THRESHOLD; }
+    setEarlyFallbackMs(n) { this.EARLY_FALLBACK_MS = Math.max(0, Math.floor(Number(n) || 0)); }
+    getEarlyFallbackMs() { return this.EARLY_FALLBACK_MS; }
+    setWorkerOverwriteScoreDelta(n) { this.WORKER_OVERWRITE_SCORE_DELTA = Number(n) || 0; }
+    getWorkerOverwriteScoreDelta() { return this.WORKER_OVERWRITE_SCORE_DELTA; }
+    setWorkerMinProfileMsForRelax(n) { this.WORKER_MIN_PROFILE_MS_FOR_RELAX = Math.max(0, Math.floor(Number(n) || 0)); }
+    getWorkerMinProfileMsForRelax() { return this.WORKER_MIN_PROFILE_MS_FOR_RELAX; }
+    setMaxConcurrentWorkers(n) {
+        this.maxConcurrentWorkers = Math.max(1, Math.floor(Number(n) || 1));
+        try {
+            this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2));
+        }
+        catch (e) {
+            this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2));
+        }
+    }
+    getMaxConcurrentWorkers() { return this.maxConcurrentWorkers; }
     startLoop() {
         try {
             if (this.disableInputDuringRun)
@@ -367,22 +388,38 @@ export default class AI {
                                 }
                             }
                             catch (e) { }
+                            let _prevAllowHold1 = true, _prevAllowHold2 = true;
                             try {
-                                this.game.setAllowHold1(false);
-                                this.game.setAllowHold2(false);
+                                _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true;
+                                _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true;
                             }
                             catch (e) { }
-                            const state = this.game.getState();
-                            const fallback = this.syncFallbackPlan(state);
+                            let fallback = null;
                             try {
-                                this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 });
+                                try {
+                                    this.game.setAllowHold1(false);
+                                    this.game.setAllowHold2(false);
+                                }
+                                catch (e) { }
+                                const state = this.game.getState();
+                                fallback = this.syncFallbackPlan(state);
+                                try {
+                                    this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 });
+                                }
+                                catch (e) { }
+                                try {
+                                    if (this.disableInputDuringRun)
+                                        window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
+                                }
+                                catch (e) { }
                             }
-                            catch (e) { }
-                            try {
-                                this.game.setAllowHold1(true);
-                                this.game.setAllowHold2(true);
+                            finally {
+                                try {
+                                    this.game.setAllowHold1(_prevAllowHold1);
+                                    this.game.setAllowHold2(_prevAllowHold2);
+                                }
+                                catch (e) { }
                             }
-                            catch (e) { }
                             try {
                                 if (this.disableInputDuringRun)
                                     window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
@@ -520,22 +557,37 @@ export default class AI {
                                     }
                                 }
                                 catch (e) { }
+                                let _prevAllowHold1 = true, _prevAllowHold2 = true;
                                 try {
-                                    this.game.setAllowHold1(false);
-                                    this.game.setAllowHold2(false);
+                                    _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true;
+                                    _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true;
                                 }
                                 catch (e) { }
-                                const fallback = this.syncFallbackPlan(this.game.getState());
+                                let fallback = null;
                                 try {
-                                    this.game.setAllowHold1(true);
-                                    this.game.setAllowHold2(true);
+                                    try {
+                                        this.game.setAllowHold1(false);
+                                        this.game.setAllowHold2(false);
+                                    }
+                                    catch (e) { }
+                                    fallback = this.syncFallbackPlan(this.game.getState());
+                                    try {
+                                        this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 });
+                                    }
+                                    catch (e) { }
+                                    try {
+                                        if (this.disableInputDuringRun)
+                                            window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
+                                    }
+                                    catch (e) { }
                                 }
-                                catch (e) { }
-                                try {
-                                    if (this.disableInputDuringRun)
-                                        window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
+                                finally {
+                                    try {
+                                        this.game.setAllowHold1(_prevAllowHold1);
+                                        this.game.setAllowHold2(_prevAllowHold2);
+                                    }
+                                    catch (e) { }
                                 }
-                                catch (e) { }
                                 this.handlePlanResult(fallback);
                             }
                             catch (e) {
@@ -970,26 +1022,37 @@ export default class AI {
                             }
                         }
                         catch (e) { }
+                        let _prevAllowHold1 = true, _prevAllowHold2 = true;
                         try {
-                            this.game.setAllowHold1(false);
-                            this.game.setAllowHold2(false);
+                            _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true;
+                            _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true;
                         }
                         catch (e) { }
-                        const fallback = this.syncFallbackPlan(state);
+                        let fallback = null;
                         try {
-                            this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 });
+                            try {
+                                this.game.setAllowHold1(false);
+                                this.game.setAllowHold2(false);
+                            }
+                            catch (e) { }
+                            fallback = this.syncFallbackPlan(state);
+                            try {
+                                this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 });
+                            }
+                            catch (e) { }
+                            try {
+                                if (this.disableInputDuringRun)
+                                    window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
+                            }
+                            catch (e) { }
                         }
-                        catch (e) { }
-                        try {
-                            this.game.setAllowHold1(true);
-                            this.game.setAllowHold2(true);
+                        finally {
+                            try {
+                                this.game.setAllowHold1(_prevAllowHold1);
+                                this.game.setAllowHold2(_prevAllowHold2);
+                            }
+                            catch (e) { }
                         }
-                        catch (e) { }
-                        try {
-                            if (this.disableInputDuringRun)
-                                window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
-                        }
-                        catch (e) { }
                         this.handlePlanResult(fallback);
                     }
                     catch (e) {
@@ -1025,43 +1088,54 @@ export default class AI {
                             return;
                         this.logs.push(`req:${reqId} early-fallback (ms=${this.EARLY_FALLBACK_MS})`);
                         // apply immediate synchronous fallback but keep the worker running
+                        let _prevAllowHold1 = true, _prevAllowHold2 = true;
                         try {
-                            this.game.setAllowHold1(false);
-                            this.game.setAllowHold2(false);
+                            _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true;
+                            _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true;
                         }
                         catch (e) { }
-                        const fallback = this.syncFallbackPlan(state);
-                        // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
+                        let fallback = null;
                         try {
-                            let parsed = null;
                             try {
-                                parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null;
+                                this.game.setAllowHold1(false);
+                                this.game.setAllowHold2(false);
                             }
-                            catch (e) {
-                                parsed = null;
-                            }
-                            const snap = { board: state && state.board ? (state.board || []).map((r) => r.slice()) : null, next: state && state.next ? (state.next || []).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
-                            this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
+                            catch (e) { }
+                            fallback = this.syncFallbackPlan(state);
+                            // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
                             try {
-                                this.recordProfile({ reqId, event: 'early-fallback-applied', sig: fallback.sig, score: fallback.score || 0 });
+                                let parsed = null;
+                                try {
+                                    parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null;
+                                }
+                                catch (e) {
+                                    parsed = null;
+                                }
+                                const snap = { board: state && state.board ? (state.board || []).map((r) => r.slice()) : null, next: state && state.next ? (state.next || []).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
+                                this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
+                                try {
+                                    this.recordProfile({ reqId, event: 'early-fallback-applied', sig: fallback.sig, score: fallback.score || 0 });
+                                }
+                                catch (e) { }
+                            }
+                            catch (e) { }
+                            try {
+                                this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`);
+                            }
+                            catch (e) { }
+                            try {
+                                if (this.disableInputDuringRun)
+                                    window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
                             }
                             catch (e) { }
                         }
-                        catch (e) { }
-                        try {
-                            this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`);
+                        finally {
+                            try {
+                                this.game.setAllowHold1(_prevAllowHold1);
+                                this.game.setAllowHold2(_prevAllowHold2);
+                            }
+                            catch (e) { }
                         }
-                        catch (e) { }
-                        try {
-                            this.game.setAllowHold1(true);
-                            this.game.setAllowHold2(true);
-                        }
-                        catch (e) { }
-                        try {
-                            if (this.disableInputDuringRun)
-                                window.input && typeof window.input.setLocked === 'function' && window.input.setLocked(false);
-                        }
-                        catch (e) { }
                         this.handlePlanResult(fallback);
                     }
                     catch (e) {
@@ -1541,8 +1615,49 @@ export default class AI {
                         this.game.hardDrop();
                 }
                 else if (result.plan && result.plan.action === 'hold') {
-                    if (typeof this.game.holdPiece === 'function')
-                        this.game.holdPiece(result.plan.slot || 1);
+                    const slot = result.plan && typeof result.plan.slot === 'number' ? result.plan.slot : 1;
+                    try {
+                        const holdAllowed = (slot === 1) ? (this.game && typeof this.game.allowHold1 !== 'undefined' ? this.game.allowHold1 : true) : (this.game && typeof this.game.allowHold2 !== 'undefined' ? this.game.allowHold2 : true);
+                        if (!holdAllowed) {
+                            try {
+                                this.logs.push(`hold skipped: slot=${slot} disabled -> performing harddrop instead`);
+                            }
+                            catch (e) { }
+                            if (typeof this.game.hardDrop === 'function')
+                                this.game.hardDrop();
+                        }
+                        else {
+                            // attempt hold and detect whether it actually changed the current piece
+                            let beforeType = null;
+                            try {
+                                const s = this.game.getState && this.game.getState();
+                                beforeType = s && s.current ? s.current.type : null;
+                            }
+                            catch (e) {
+                                beforeType = null;
+                            }
+                            if (typeof this.game.holdPiece === 'function')
+                                this.game.holdPiece(slot);
+                            let afterType = null;
+                            try {
+                                const s2 = this.game.getState && this.game.getState();
+                                afterType = s2 && s2.current ? s2.current.type : null;
+                            }
+                            catch (e) {
+                                afterType = null;
+                            }
+                            // if hold had no effect (e.g. already used this turn), fallback to harddrop to make progress
+                            if (beforeType === afterType) {
+                                try {
+                                    this.logs.push(`hold no-op detected (slot=${slot}), performing harddrop`);
+                                }
+                                catch (e) { }
+                                if (typeof this.game.hardDrop === 'function')
+                                    this.game.hardDrop();
+                            }
+                        }
+                    }
+                    catch (e) { }
                 }
                 else if (result.plan && result.plan.action === 'place') {
                     // rotate to desired orientation then move horizontally then harddrop

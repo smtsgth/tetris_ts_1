@@ -156,6 +156,28 @@ export default class AI {
   setTopK(n: number) { this.topK = Math.max(1, Math.floor(Number(n) || 1)); }
   getTopK() { return this.topK; }
 
+  // runtime tuning accessors for fallback/worker behavior
+  setPlanTimeoutMs(n: number) { this.PLAN_TIMEOUT_MS = Math.max(0, Math.floor(Number(n) || 0)); }
+  getPlanTimeoutMs() { return this.PLAN_TIMEOUT_MS; }
+
+  setRepeatPlanThreshold(n: number) { this.REPEAT_PLAN_THRESHOLD = Math.max(0, Math.floor(Number(n) || 0)); }
+  getRepeatPlanThreshold() { return this.REPEAT_PLAN_THRESHOLD; }
+
+  setEarlyFallbackMs(n: number) { this.EARLY_FALLBACK_MS = Math.max(0, Math.floor(Number(n) || 0)); }
+  getEarlyFallbackMs() { return this.EARLY_FALLBACK_MS; }
+
+  setWorkerOverwriteScoreDelta(n: number) { this.WORKER_OVERWRITE_SCORE_DELTA = Number(n) || 0; }
+  getWorkerOverwriteScoreDelta() { return this.WORKER_OVERWRITE_SCORE_DELTA; }
+
+  setWorkerMinProfileMsForRelax(n: number) { this.WORKER_MIN_PROFILE_MS_FOR_RELAX = Math.max(0, Math.floor(Number(n) || 0)); }
+  getWorkerMinProfileMsForRelax() { return this.WORKER_MIN_PROFILE_MS_FOR_RELAX; }
+
+  setMaxConcurrentWorkers(n: number) {
+    this.maxConcurrentWorkers = Math.max(1, Math.floor(Number(n) || 1));
+    try { this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2)); } catch (e) { this.poolSize = Math.max(1, Math.floor(this.maxConcurrentWorkers / 2)); }
+  }
+  getMaxConcurrentWorkers() { return this.maxConcurrentWorkers; }
+
   private startLoop() {
     try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(true); } catch (e) {}
     this.scheduleNext();
@@ -287,11 +309,18 @@ export default class AI {
                   setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150);
                 }
               } catch (e) {}
-              try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-              const state = this.game.getState();
-              const fallback = this.syncFallbackPlan(state);
-              try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
-              try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
+              let _prevAllowHold1 = true, _prevAllowHold2 = true;
+              try { _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true; _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true; } catch (e) {}
+              let fallback: any = null;
+              try {
+                try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+                const state = this.game.getState();
+                fallback = this.syncFallbackPlan(state);
+                try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
+                try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+              } finally {
+                try { this.game.setAllowHold1(_prevAllowHold1); this.game.setAllowHold2(_prevAllowHold2); } catch (e) {}
+              }
               try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
               this.handlePlanResult(fallback);
             } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch(_) {} }
@@ -355,10 +384,17 @@ export default class AI {
                   return;
                 }
                 try { const info = this.activeWorkers.get(reqId); if (info) { try { info.worker.postMessage({ type: 'cancel', reqId }); } catch (e) {} setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150); } } catch (e) {}
-                try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-                const fallback = this.syncFallbackPlan(this.game.getState());
-                try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-                try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+                let _prevAllowHold1 = true, _prevAllowHold2 = true;
+                try { _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true; _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true; } catch (e) {}
+                let fallback: any = null;
+                try {
+                  try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+                  fallback = this.syncFallbackPlan(this.game.getState());
+                  try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
+                  try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+                } finally {
+                  try { this.game.setAllowHold1(_prevAllowHold1); this.game.setAllowHold2(_prevAllowHold2); } catch (e) {}
+                }
                 this.handlePlanResult(fallback);
               } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
               try { this.workerTimeouts.delete(reqId); } catch (e) {}
@@ -598,11 +634,17 @@ export default class AI {
                 setTimeout(() => { try { this.terminateActiveWorker(reqId); } catch (e) {} }, 150);
               }
             } catch (e) {}
-            try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-            const fallback = this.syncFallbackPlan(state);
-            try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
-            try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-            try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+            let _prevAllowHold1 = true, _prevAllowHold2 = true;
+            try { _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true; _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true; } catch (e) {}
+            let fallback: any = null;
+            try {
+              try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+              fallback = this.syncFallbackPlan(state);
+              try { this.recordProfile({ reqId, event: 'timeout-fallback-applied', sig: fallback && fallback.sig ? fallback.sig : null, score: fallback && fallback.score ? fallback.score : 0 }); } catch (e) {}
+              try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+            } finally {
+              try { this.game.setAllowHold1(_prevAllowHold1); this.game.setAllowHold2(_prevAllowHold2); } catch (e) {}
+            }
             this.handlePlanResult(fallback);
           } catch (e) { try { this.logs.push('worker timeout handler error: '+String(e)); } catch (_) {} }
           try { this.workerTimeouts.delete(reqId); } catch (e) {}
@@ -619,19 +661,25 @@ export default class AI {
             if (!this.activeWorkers.has(reqId)) return;
             this.logs.push(`req:${reqId} early-fallback (ms=${this.EARLY_FALLBACK_MS})`);
             // apply immediate synchronous fallback but keep the worker running
-            try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
-            const fallback = this.syncFallbackPlan(state);
-            // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
+            let _prevAllowHold1 = true, _prevAllowHold2 = true;
+            try { _prevAllowHold1 = (this.game && typeof this.game.allowHold1 !== 'undefined') ? !!this.game.allowHold1 : true; _prevAllowHold2 = (this.game && typeof this.game.allowHold2 !== 'undefined') ? !!this.game.allowHold2 : true; } catch (e) {}
+            let fallback: any = null;
             try {
-              let parsed: any = null;
-              try { parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null; } catch (e) { parsed = null; }
-              const snap = { board: state && state.board ? (state.board||[]).map((r:any)=>r.slice()) : null, next: state && state.next ? (state.next||[]).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
-              this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
-              try { this.recordProfile({ reqId, event: 'early-fallback-applied', sig: fallback.sig, score: fallback.score || 0 }); } catch (e) {}
-            } catch (e) {}
-            try { this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`); } catch (e) {}
-            try { this.game.setAllowHold1(true); this.game.setAllowHold2(true); } catch (e) {}
-            try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+              try { this.game.setAllowHold1(false); this.game.setAllowHold2(false); } catch (e) {}
+              fallback = this.syncFallbackPlan(state);
+              // record applied fallback (store parsed sig + snapshot) so worker final can be compared later
+              try {
+                let parsed: any = null;
+                try { parsed = fallback && fallback.sig ? JSON.parse(fallback.sig) : null; } catch (e) { parsed = null; }
+                const snap = { board: state && state.board ? (state.board||[]).map((r:any)=>r.slice()) : null, next: state && state.next ? (state.next||[]).slice() : null, hold: state && state.hold ? state.hold : null, current: state && state.current ? state.current.type : null };
+                this.appliedFallbacks.set(reqId, { sig: fallback.sig, score: fallback.score || 0, parsedSig: parsed, snapshot: snap, appliedAt: Date.now() });
+                try { this.recordProfile({ reqId, event: 'early-fallback-applied', sig: fallback.sig, score: fallback.score || 0 }); } catch (e) {}
+              } catch (e) {}
+              try { this.logs.push(`req:${reqId} fallback-applied sig:${fallback.sig} score:${fallback.score || 0}`); } catch (e) {}
+              try { if (this.disableInputDuringRun) (window as any).input && typeof (window as any).input.setLocked === 'function' && (window as any).input.setLocked(false); } catch (e) {}
+            } finally {
+              try { this.game.setAllowHold1(_prevAllowHold1); this.game.setAllowHold2(_prevAllowHold2); } catch (e) {}
+            }
             this.handlePlanResult(fallback);
           } catch (e) { try { this.logs.push('early-fallback error: ' + String(e)); } catch (er) {} }
           try { const t = this.earlyFallbackTimers.get(reqId); if (t) { clearTimeout(t); } this.earlyFallbackTimers.delete(reqId); } catch (e) {}
@@ -895,14 +943,23 @@ export default class AI {
           if (typeof this.game.hardDrop === 'function') this.game.hardDrop();
         } else if (result.plan && result.plan.action === 'hold') {
           const slot = result.plan && typeof result.plan.slot === 'number' ? result.plan.slot : 1;
-          // respect game's allowHold toggles; if hold is disabled, convert to harddrop to make progress
           try {
             const holdAllowed = (slot === 1) ? (this.game && typeof this.game.allowHold1 !== 'undefined' ? this.game.allowHold1 : true) : (this.game && typeof this.game.allowHold2 !== 'undefined' ? this.game.allowHold2 : true);
             if (!holdAllowed) {
               try { this.logs.push(`hold skipped: slot=${slot} disabled -> performing harddrop instead`); } catch (e) {}
               if (typeof this.game.hardDrop === 'function') this.game.hardDrop();
             } else {
+              // attempt hold and detect whether it actually changed the current piece
+              let beforeType: any = null;
+              try { const s = this.game.getState && this.game.getState(); beforeType = s && s.current ? s.current.type : null; } catch (e) { beforeType = null; }
               if (typeof this.game.holdPiece === 'function') this.game.holdPiece(slot);
+              let afterType: any = null;
+              try { const s2 = this.game.getState && this.game.getState(); afterType = s2 && s2.current ? s2.current.type : null; } catch (e) { afterType = null; }
+              // if hold had no effect (e.g. already used this turn), fallback to harddrop to make progress
+              if (beforeType === afterType) {
+                try { this.logs.push(`hold no-op detected (slot=${slot}), performing harddrop`); } catch (e) {}
+                if (typeof this.game.hardDrop === 'function') this.game.hardDrop();
+              }
             }
           } catch (e) {}
         } else if (result.plan && result.plan.action === 'place') {

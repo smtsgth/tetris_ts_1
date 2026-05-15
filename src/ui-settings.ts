@@ -175,6 +175,41 @@ export default function attachInputSettings(input: Input) {
               }
             }
           } catch (e) { }
+          // additional AI runtime tuning parameters
+          try {
+            const planTimeoutInput = document.getElementById('plan-timeout-ms') as HTMLInputElement | null;
+            const earlyFallbackInput = document.getElementById('early-fallback-ms') as HTMLInputElement | null;
+            const repeatPlanInput = document.getElementById('repeat-plan-threshold') as HTMLInputElement | null;
+            const workerOverwriteInput = document.getElementById('worker-overwrite-delta') as HTMLInputElement | null;
+            const workerMinProfileInput = document.getElementById('worker-min-profile-ms') as HTMLInputElement | null;
+            const maxWorkersInput = document.getElementById('max-concurrent-workers') as HTMLInputElement | null;
+            if (ai) {
+              if (planTimeoutInput && typeof ai.getPlanTimeoutMs === 'function') {
+                const cur = ai.getPlanTimeoutMs(); planTimeoutInput.value = String(cur);
+                planTimeoutInput.addEventListener('change', () => { const v = Number(planTimeoutInput.value); try { ai.setPlanTimeoutMs(v); } catch (e) {} });
+              }
+              if (earlyFallbackInput && typeof ai.getEarlyFallbackMs === 'function') {
+                const cur = ai.getEarlyFallbackMs(); earlyFallbackInput.value = String(cur);
+                earlyFallbackInput.addEventListener('change', () => { const v = Number(earlyFallbackInput.value); try { ai.setEarlyFallbackMs(v); } catch (e) {} });
+              }
+              if (repeatPlanInput && typeof ai.getRepeatPlanThreshold === 'function') {
+                const cur = ai.getRepeatPlanThreshold(); repeatPlanInput.value = String(cur);
+                repeatPlanInput.addEventListener('change', () => { const v = Number(repeatPlanInput.value); try { ai.setRepeatPlanThreshold(v); } catch (e) {} });
+              }
+              if (workerOverwriteInput && typeof ai.getWorkerOverwriteScoreDelta === 'function') {
+                const cur = ai.getWorkerOverwriteScoreDelta(); workerOverwriteInput.value = String(cur);
+                workerOverwriteInput.addEventListener('change', () => { const v = Number(workerOverwriteInput.value); try { ai.setWorkerOverwriteScoreDelta(v); } catch (e) {} });
+              }
+              if (workerMinProfileInput && typeof ai.getWorkerMinProfileMsForRelax === 'function') {
+                const cur = ai.getWorkerMinProfileMsForRelax(); workerMinProfileInput.value = String(cur);
+                workerMinProfileInput.addEventListener('change', () => { const v = Number(workerMinProfileInput.value); try { ai.setWorkerMinProfileMsForRelax(v); } catch (e) {} });
+              }
+              if (maxWorkersInput && typeof ai.getMaxConcurrentWorkers === 'function') {
+                const cur = ai.getMaxConcurrentWorkers(); maxWorkersInput.value = String(cur);
+                maxWorkersInput.addEventListener('change', () => { const v = Number(maxWorkersInput.value); try { ai.setMaxConcurrentWorkers(v); } catch (e) {} });
+              }
+            }
+          } catch (e) { }
         }
       } catch (e) { }
     } catch (e) { }
