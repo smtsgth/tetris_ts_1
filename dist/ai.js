@@ -107,7 +107,15 @@ export default class AI {
     }
     exportProfilesToWindow() {
         try {
-            window.__workerProfiles = this.getAllProfileEvents();
+            const data = this.getAllProfileEvents();
+            try {
+                window.__workerProfiles = data;
+            }
+            catch (e) { }
+            try {
+                window.workerProfiles = data;
+            }
+            catch (e) { }
         }
         catch (e) { }
     }

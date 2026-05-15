@@ -99,7 +99,11 @@ export default class AI {
   }
 
   exportProfilesToWindow(): void {
-    try { (window as any).__workerProfiles = this.getAllProfileEvents(); } catch (e) {}
+    try {
+      const data = this.getAllProfileEvents();
+      try { (window as any).__workerProfiles = data; } catch (e) {}
+      try { (window as any).workerProfiles = data; } catch (e) {}
+    } catch (e) {}
   }
 
   downloadProfiles(filename?: string): void {
