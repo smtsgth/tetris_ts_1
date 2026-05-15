@@ -267,15 +267,19 @@ export default class Game {
 
   lock() {
     if (!this.current) return;
-    const tspinType = this.lastMoveWasRotation && this.current.type === 'T' ? this.isTSpin(this.current) : 'none';
-    const m = this.current.matrix;
+    // prevent re-entrant/double-lock: capture current piece and clear it immediately
+    const piece = this.current;
+    this.current = null;
+
+    const tspinType = this.lastMoveWasRotation && piece.type === 'T' ? this.isTSpin(piece) : 'none';
+    const m = piece.matrix;
     for (let r = 0; r < m.length; r++) {
       for (let c = 0; c < m[r].length; c++) {
         if (!m[r][c]) continue;
-        const x = this.current.x + c;
-        const y = this.current.y + r;
+        const x = piece.x + c;
+        const y = piece.y + r;
         if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
-          this.board[y][x] = this.current.type;
+          this.board[y][x] = piece.type;
         }
       }
     }
