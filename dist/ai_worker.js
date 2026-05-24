@@ -180,13 +180,84 @@
         return (h >>> 0).toString(36);
     }
     const placementCache = new Map(); // boardHash|type -> placements (LRU via reinsert)
-    const DEFAULT_PLACEMENT_CACHE_MAX = 8000;
+    const DEFAULT_PLACEMENT_CACHE_MAX = 512;
     let PLACEMENT_CACHE_MAX = DEFAULT_PLACEMENT_CACHE_MAX;
     let placementCacheHits = 0, placementCacheMisses = 0, placementGeneratedCount = 0;
     let placementCacheEvictions = 0, placementCacheFallbacks = 0, placementCacheMaxObserved = 0;
-    let TOP_K = 2; // profiling default (updated from analysis)
+    let TOP_K = 1; // default to 1 for faster planning
     function getCacheKey(bHash, type) { return bHash + '|' + type; }
     function cacheMetricsSnapshot() { return { placementCacheHits: placementCacheHits, placementCacheMisses: placementCacheMisses, placementGeneratedCount: placementGeneratedCount, placementCacheEvictions: placementCacheEvictions, placementCacheFallbacks: placementCacheFallbacks, placementCacheSize: placementCache.size, placementCacheMaxObserved: placementCacheMaxObserved }; }
+    // --- Transposition cache (per-worker local + main-thread shared) ---
+    const TRANSPO_MAX_DEPTH = 3;
+    const TRANSPO_MAX_ENTRIES = 2000;
+    const transpositionCache = new Map();
+    const SHARED_TRANSPO_TIMEOUT_MS = 40;
+    function _lookupSharedTransposition(key){
+        return new Promise(resolve => {
+            const transpoReqId = 't-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+            function _h(ev){
+                try{
+                    const m = ev.data || {};
+                    if(m && m.type === 'transpo-result' && m.transpoReqId === transpoReqId){
+                        try{ self.removeEventListener('message', _h); }catch(e){}
+                        resolve(m.value || null);
+                    }
+                }catch(e){}
+            }
+            try{ self.addEventListener('message', _h); }catch(e){}
+            try{ self.postMessage({ reqId: reqId, type: 'transpo-get', transpoReqId: transpoReqId, key: key }); }catch(e){ try{ self.removeEventListener('message', _h); }catch(_){} resolve(null); }
+            setTimeout(()=>{ try{ self.removeEventListener('message', _h); }catch(e){} resolve(null); }, SHARED_TRANSPO_TIMEOUT_MS);
+        });
+    }
+    async function transpositionEvaluate(board, currentType, holdVal, nextArr, remDepth){
+        if(!currentType || remDepth <= 0) return { score: 0, nextBoard: board, nextCurrent: currentType, nextHold: holdVal, nextNext: (nextArr||[]).slice(), firstAction: null };
+        const key = hashBoard(board) + '|' + currentType + '|' + (holdVal||'null') + '|' + (nextArr||[]).join(',') + '|' + remDepth;
+        if(transpositionCache.has(key)) return transpositionCache.get(key);
+        // try shared cache first
+        try{
+            const shared = await _lookupSharedTransposition(key);
+            if(shared){ try{ transpositionCache.set(key, shared); }catch(e){} return shared; }
+        }catch(e){}
+        let bestScore = -Infinity;
+        let bestResult = { score: 0, nextBoard: board, nextCurrent: null, nextHold: holdVal, nextNext: [], firstAction: null };
+        try{
+            const placementsAll = await generatePlacementsForType(board, currentType, reqId, 1);
+            for(const p of (placementsAll || []).slice(0,1)){
+                const newNext = (nextArr||[]).slice();
+                const newCur = newNext.length ? newNext.shift() : null;
+                let cont = { score: 0 };
+                if(remDepth - 1 > 0 && newCur) cont = await transpositionEvaluate(p.board, newCur, holdVal, newNext, remDepth - 1);
+                const total = p.score + (cont && typeof cont.score === 'number' ? cont.score : 0);
+                if(total > bestScore){ bestScore = total; bestResult = { score: total, nextBoard: p.board, nextCurrent: newCur, nextHold: holdVal, nextNext: newNext, firstAction: { type:'place', x: p.x, rot: p.rot } }; }
+            }
+            if(holdVal !== null || (nextArr && nextArr.length>0)){
+                const swappedHold = holdVal === null ? currentType : holdVal;
+                const newCurType = holdVal === null ? (nextArr && nextArr.length ? nextArr[0] : null) : holdVal;
+                const newNextAfterHold = holdVal === null ? (nextArr||[]).slice(1) : (nextArr||[]).slice();
+                if(newCurType){
+                    const placements2All = await generatePlacementsForType(board, newCurType, reqId, 1);
+                    for(const p of (placements2All || []).slice(0,1)){
+                        const newNextForHold = newNextAfterHold.slice();
+                        const newCurAfterHold = newNextForHold.length ? newNextForHold.shift() : null;
+                        let cont2 = { score: 0 };
+                        if(remDepth - 1 > 0 && newCurAfterHold) cont2 = await transpositionEvaluate(p.board, newCurAfterHold, swappedHold, newNextForHold, remDepth - 1);
+                        const total2 = p.score - HOLD_PENALTY + (cont2 && typeof cont2.score === 'number' ? cont2.score : 0);
+                        if(total2 > bestScore){ bestScore = total2; bestResult = { score: total2, nextBoard: p.board, nextCurrent: newCurAfterHold, nextHold: swappedHold, nextNext: newNextForHold, firstAction: { type:'hold', slot:1, x: p.x, rot: p.rot } }; }
+                    }
+                }
+            }
+        } catch(e){}
+        const out = bestResult;
+        try { transpositionCache.set(key, out); } catch (e) {}
+        try{ self.postMessage({ reqId: reqId, type: 'transpo-set', key: key, value: out }); }catch(e){}
+        if(transpositionCache.size > TRANSPO_MAX_ENTRIES){ const it = transpositionCache.keys(); transpositionCache.delete(it.next().value); }
+        return out;
+    }
+    // signal that worker JS has finished initial parsing/initialization
+    try {
+        self.postMessage({ type: 'worker-ready' });
+    }
+    catch (e) { }
     async function generatePlacementsForType(board, type, reqId, topKOverride) {
         // normalize board to bitboard (array of row masks)
         let boardBits = board;
@@ -317,6 +388,9 @@
             const cleared = write + 1;
             return { board: out, cleared };
         }
+        const topKToUse = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
+        const topPlacements = [];
+        let placementsGenerated = 0;
         for (let rot = 0; rot < 4; rot++) {
             const rotInfo = PRE_ROT_ROW_MASKS[type] && PRE_ROT_ROW_MASKS[type][rot];
             if (!rotInfo)
@@ -324,7 +398,7 @@
             const masksArr = rotInfo.masksArr;
             for (let si = 0; si < masksArr.length; si++) {
                 if (cancelled)
-                    return placements;
+                    return topPlacements;
                 iterCount++;
                 if ((iterCount & 127) === 0) {
                     try {
@@ -340,16 +414,26 @@
                 const y = dropYBB(boardBits, masks, startY);
                 const res = placeAndClearBB(boardBits, masks, y);
                 const score = evaluateBitboard(res.board, res.cleared);
-                placements.push({ x: entry.shift, rot, board: res.board, cleared: res.cleared, score });
+                placementsGenerated++;
+                const candidate = { x: entry.shift, rot, board: res.board, cleared: res.cleared, score };
+                if (topPlacements.length < topKToUse) {
+                    topPlacements.push(candidate);
+                }
+                else {
+                    // replace the minimum-scoring entry if candidate is better
+                    let minIdx = 0;
+                    for (let i = 1; i < topPlacements.length; i++) if (topPlacements[i].score < topPlacements[minIdx].score) minIdx = i;
+                    if (candidate.score > topPlacements[minIdx].score) topPlacements[minIdx] = candidate;
+                }
             }
         }
-        placements.sort((a, b) => b.score - a.score);
-        const topKToUse = (typeof topKOverride === 'number') ? Math.max(1, Math.floor(topKOverride)) : TOP_K;
-        const top = placements.slice(0, topKToUse);
-        // cache the full sorted placements list (slice to requested topK on lookup)
-        placementCache.set(key, placements);
+        // sort top placements descending
+        topPlacements.sort((a, b) => b.score - a.score);
+        const top = topPlacements.slice(0, topKToUse);
+        // cache only the top placements (save memory & CPU)
+        placementCache.set(key, topPlacements);
         placementCacheMisses++;
-        placementGeneratedCount += placements.length;
+        placementGeneratedCount += placementsGenerated;
         if (placementCache.size > placementCacheMaxObserved)
             placementCacheMaxObserved = placementCache.size;
         if (placementCache.size > PLACEMENT_CACHE_MAX) {
@@ -366,6 +450,11 @@
     let cancelled = false;
     self.onmessage = function (e) {
         const msg = e.data || {};
+        // respond to handshake/init probes quickly so main thread can measure init time
+        if (msg && (msg.type === 'handshake' || msg.type === 'init-handshake')) {
+            try { self.postMessage({ type: 'worker-ready', handshakeId: msg.handshakeId }); } catch (e) { }
+            return;
+        }
         // support cancel messages
         if (msg && msg.type === 'cancel') {
             cancelled = true;
@@ -395,7 +484,7 @@
         if (typeof params.cacheMaxSize !== 'undefined' && !isNaN(Number(params.cacheMaxSize))) {
             PLACEMENT_CACHE_MAX = Math.max(32, Math.floor(Number(params.cacheMaxSize)));
         }
-        const beamWidthBaseMsg = Number(params.beamWidthBase) || 3;
+        const beamWidthBaseMsg = Number(params.beamWidthBase) || 1;
         let perNodeLimitMsg = Number(params.perNodeLimit) || 1;
         let topKMsg = typeof params.topK === 'number' ? Number(params.topK) : 2;
         // adapt work amount based on provided timeoutMs or fastMode hint
@@ -421,10 +510,27 @@
                 const perNodeLimit = perNodeLimitMsg;
                 TOP_K = topKMsg;
                 const root = { board: (s.board || []).map((r) => r.slice()), current: s.current ? s.current.type : null, hold: s.hold || null, next: (s.next || []).slice(), score: 0, firstAction: null };
+                // Fast-path: if caller requested the minimal search (single node, single top), do a greedy placement and return immediately
+                try {
+                    if (perNodeLimit <= 1 && TOP_K <= 1 && beamWidthBase <= 1 && lookahead <= 1) {
+                        const placementsNow = await generatePlacementsForType(root.board, root.current, reqId, 1);
+                        const best = (placementsNow && placementsNow.length) ? placementsNow[0] : null;
+                        const planNow = best ? { action: 'place', x: best.x, rotation: best.rot } : { action: 'harddrop' };
+                        try { self.postMessage({ reqId: reqId, plan: planNow, score: best ? best.score : 0, sig: JSON.stringify({ next: (s.next || []).slice(0, lookahead), hold: s.hold, current: s.current }), profile: Object.assign({ depthProfile: [] }, cacheMetricsSnapshot(), { totalTimeMs: Date.now() - Date.now() }) }); } catch (e) { }
+                        return;
+                    }
+                }
+                catch (e) { }
                 let beam = [root];
                 const depthProfile = [];
                 const startTotal = Date.now();
                 for (let depth = 0; depth < lookahead; depth++) {
+                    // if we're nearing the allowed timeout, break out to produce final plan
+                    const elapsedSoFar = Date.now() - startTotal;
+                    const allowedMs = (typeof params.timeoutMs === 'number') ? params.timeoutMs : 1000;
+                    if (elapsedSoFar >= Math.max(0, allowedMs - 25)) {
+                        break;
+                    }
                     if (cancelled) {
                         try {
                             self.postMessage({ reqId: reqId, cancelled: true, profile: Object.assign({ depthProfile: depthProfile.slice() }, cacheMetricsSnapshot(), { totalTimeMs: Date.now() - startTotal }) });
@@ -462,6 +568,24 @@
                                 topKLocal = Math.min(topKLocal, 1);
                             }
                         }
+                        // attempt to reuse transposition results for small remaining depths
+                        try{
+                            const remainingDepth = Math.max(0, lookahead - depth);
+                            const useTranspo = (typeof params.useTransposition !== 'undefined' ? params.useTransposition : true) && (remainingDepth <= TRANSPO_MAX_DEPTH);
+                            if(useTranspo){
+                                try{
+                                    const t = await transpositionEvaluate(node.board, node.current, node.hold, node.next, remainingDepth);
+                                    if(t && typeof t.score === 'number' && t.firstAction){
+                                        const nd = { board: t.nextBoard, current: t.nextCurrent, hold: t.nextHold, next: t.nextNext, score: node.score + t.score, firstAction: node.firstAction || t.firstAction };
+                                        const newKey = hashBoard(nd.board) + '|' + (nd.current || 'null') + '|' + (nd.hold || 'null') + '|' + nd.next.join(',');
+                                        const existing = nextMap.get(newKey);
+                                        if(!existing || existing.score < nd.score) nextMap.set(newKey, nd);
+                                        placementsConsidered += 1;
+                                        continue;
+                                    }
+                                }catch(e){}
+                            }
+                        }catch(e){}
                         const placementsAll = await generatePlacementsForType(node.board, node.current, reqId, topKLocal);
                         const placements = placementsAll.slice(0, perNodeLimitLocal);
                         placementsConsidered += placements.length;
@@ -568,5 +692,4 @@
             }
         })();
     };
-})();
-export {};
+    })();

@@ -13,9 +13,46 @@ export default function attachInputSettings(input: Input) {
     const renderer = (window as any).renderer as any;
     const ai = (window as any).ai as any;
 
-    // palette colors: 2 dark, 5 light (indexes 0-6)
-    const outerColors = ['#050505','#111213','#2f3e46','#556b86','#9fb4d9','#dbeafe','#ffffff'];
-    const innerColors = ['#0b1221','#101827','#1f6f63','#f59e0b','#ef4444','#fef3c7','#ffffff'];
+    // palette colors arranged as column pairs: [topBright, bottomDark, ...]
+    // top row: white, light green, light blue, light yellow, light orange
+    // bottom row: black, dark green, dark blue, dark orange, gray
+    const outerColors = [
+      '#ffffff', '#050505', // white / black
+      '#dcfce7', '#1f6f63', // light green / dark green
+      '#dbeafe', '#0b2f6b', // light blue / dark blue (changed to dark blue)
+      '#f3f4f6', '#f59e0b', // light gray (replaced yellow) / dark orange
+      '#fff4e6', '#6b7280'  // light orange / gray
+    ];
+    // make board (inner) palette use the same swatches as HUD
+    const innerColors = outerColors.slice();
+
+    // Helpers: convert hex to RGB, compute luminance, pick readable foreground, set controls bg/fg
+    function hexToRgb(hex: string) {
+      const h = hex.replace('#','');
+      const bigint = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16);
+      return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+    }
+    function relativeLuminance(r: number, g: number, b: number) {
+      const srgb = [r/255, g/255, b/255].map(c => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4));
+      return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+    }
+    function pickForeground(hex: string) {
+      try {
+        const {r,g,b} = hexToRgb(hex);
+        const L = relativeLuminance(r,g,b);
+        // use white for dark backgrounds, black for light backgrounds
+        return L < 0.5 ? '#ffffff' : '#111111';
+      } catch(e) { return '#ffffff'; }
+    }
+    function applyControlsStyle(hex: string) {
+      try {
+        const {r,g,b} = hexToRgb(hex);
+        const alpha = 0.9; // transparency for controls
+        const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        document.documentElement.style.setProperty('--controls-bg', rgba);
+        document.documentElement.style.setProperty('--controls-foreground', pickForeground(hex));
+      } catch(e) {}
+    }
 
     function createSwatches(containerId: string, colors: string[], cssVar: string, defaultIndex = 5) {
       const container = document.getElementById(containerId);
@@ -31,6 +68,7 @@ export default function attachInputSettings(input: Input) {
           // update selected class
           Array.from(container.children).forEach(ch => (ch as HTMLElement).classList.remove('selected'));
           sw.classList.add('selected');
+          if (cssVar === '--frame-bg') applyControlsStyle(col);
         });
         container.appendChild(sw);
       });
@@ -39,11 +77,21 @@ export default function attachInputSettings(input: Input) {
       const child = container.children[idx] as HTMLElement | undefined;
       if (child) (child as HTMLElement).classList.add('selected');
       document.documentElement.style.setProperty(cssVar, colors[idx]);
+      if (cssVar === '--frame-bg') applyControlsStyle(colors[idx]);
     }
 
-    // render palette pickers
-    createSwatches('palette-outer-panel', outerColors, '--frame-bg', 5);
-    createSwatches('palette-inner-panel', innerColors, '--inner-bg', 5);
+    // render palette pickers (default selection = first swatch)
+    createSwatches('palette-outer-panel', outerColors, '--frame-bg', 0);
+    createSwatches('palette-inner-panel', innerColors, '--inner-bg', 0);
+
+    // set title attributes for AI labels so full text is visible on hover (since labels are single-line)
+    try {
+      const aiLabelEls = Array.from(document.querySelectorAll('#ai-panel .setting-row label, #right-controls #ai-panel .setting-row label')) as HTMLElement[];
+      aiLabelEls.forEach(el => {
+        const t = el.textContent ? el.textContent.trim() : '';
+        if (t && !el.getAttribute('title')) el.setAttribute('title', t);
+      });
+    } catch (e) {}
 
     // DAS/ARR/Soft Drop wiring
     try {
@@ -204,6 +252,29 @@ export default function attachInputSettings(input: Input) {
                 const cur = ai.getWorkerMinProfileMsForRelax(); workerMinProfileInput.value = String(cur);
                 workerMinProfileInput.addEventListener('change', () => { const v = Number(workerMinProfileInput.value); try { ai.setWorkerMinProfileMsForRelax(v); } catch (e) {} });
               }
+              // hold/higher-risk tuning
+              try {
+                const holdThrInput = document.getElementById('hold-improvement-threshold') as HTMLInputElement | null;
+                const holdDebounceInput = document.getElementById('hold-debounce-ms') as HTMLInputElement | null;
+                const highRiskMaxInput = document.getElementById('high-risk-max-height') as HTMLInputElement | null;
+                const highRiskHolesInput = document.getElementById('high-risk-holes') as HTMLInputElement | null;
+                if (ai && holdThrInput && typeof ai.getHoldImprovementThreshold === 'function') {
+                  const cur = ai.getHoldImprovementThreshold(); holdThrInput.value = String(cur);
+                  holdThrInput.addEventListener('change', () => { const v = Number(holdThrInput.value); try { ai.setHoldImprovementThreshold(v); } catch (e) {} });
+                }
+                if (ai && holdDebounceInput && typeof ai.getHoldDebounceMs === 'function') {
+                  const cur = ai.getHoldDebounceMs(); holdDebounceInput.value = String(cur);
+                  holdDebounceInput.addEventListener('change', () => { const v = Number(holdDebounceInput.value); try { ai.setHoldDebounceMs(v); } catch (e) {} });
+                }
+                if (ai && highRiskMaxInput && typeof ai.getHighRiskMaxHeight === 'function') {
+                  const cur = ai.getHighRiskMaxHeight(); highRiskMaxInput.value = String(cur);
+                  highRiskMaxInput.addEventListener('change', () => { const v = Number(highRiskMaxInput.value); try { ai.setHighRiskMaxHeight(v); } catch (e) {} });
+                }
+                if (ai && highRiskHolesInput && typeof ai.getHighRiskHoles === 'function') {
+                  const cur = ai.getHighRiskHoles(); highRiskHolesInput.value = String(cur);
+                  highRiskHolesInput.addEventListener('change', () => { const v = Number(highRiskHolesInput.value); try { ai.setHighRiskHoles(v); } catch (e) {} });
+                }
+              } catch (e) {}
               if (maxWorkersInput && typeof ai.getMaxConcurrentWorkers === 'function') {
                 const cur = ai.getMaxConcurrentWorkers(); maxWorkersInput.value = String(cur);
                 maxWorkersInput.addEventListener('change', () => { const v = Number(maxWorkersInput.value); try { ai.setMaxConcurrentWorkers(v); } catch (e) {} });
@@ -212,15 +283,87 @@ export default function attachInputSettings(input: Input) {
           } catch (e) { }
         }
       } catch (e) { }
-    } catch (e) { }
+      } catch (e) { }
 
-    // reset settings button
+      // Lock monitor wiring: stats, events, controls
+      try {
+        const lockEnabled = document.getElementById('lock-monitor-enabled') as HTMLInputElement | null;
+        const lockThreshold = document.getElementById('lock-rapid-threshold') as HTMLInputElement | null;
+        const lockExportBtn = document.getElementById('lock-export-btn') as HTMLButtonElement | null;
+        const lockExportCsvBtn = document.getElementById('lock-export-csv-btn') as HTMLButtonElement | null;
+        const lockClearBtn = document.getElementById('lock-clear-btn') as HTMLButtonElement | null;
+        const lockStatsEl = document.getElementById('lock-stats') as HTMLElement | null;
+        const lockEventsList = document.getElementById('lock-events-list') as HTMLElement | null;
+        if (game) {
+          try {
+            if (lockEnabled && typeof game.setLockMonitorEnabled === 'function') {
+              // try to reflect current state if possible
+              try { lockEnabled.checked = !!(game.monitorLocks !== undefined ? game.monitorLocks : true); } catch (e) {}
+              lockEnabled.addEventListener('change', () => { try { game.setLockMonitorEnabled(lockEnabled.checked); } catch (e) {} });
+            }
+            if (lockThreshold && typeof game.getLockStats === 'function') {
+              const s = game.getLockStats();
+              if (s && typeof s.rapidLockThresholdMs === 'number') lockThreshold.value = String(s.rapidLockThresholdMs);
+              lockThreshold.addEventListener('change', () => { const v = Number(lockThreshold.value); try { game.setLockRapidThresholdMs(v); } catch (e) {} });
+            }
+            if (lockExportBtn) lockExportBtn.addEventListener('click', () => { try { if (typeof game.exportLockEventsToWindow === 'function') game.exportLockEventsToWindow(); lockRefresh(); } catch (e) {} });
+            if (lockExportCsvBtn) lockExportCsvBtn.addEventListener('click', () => {
+              // CSV generation will be handled below via blob fallback
+              try {
+                // fallback: create CSV via browser blob using latest events
+                const ev2 = typeof game.getLockEvents === 'function' ? game.getLockEvents() : [] as any[];
+                if (!ev2 || !ev2.length) return;
+                const header = ['ts','type','piece','beforeFilled','afterFilled','delta'];
+                const csvRows = [header.join(',')];
+                for (const it of ev2) {
+                  const cells = [it.ts, it.type, it.piece, it.beforeFilled, it.afterFilled, it.delta].map(c => `${String(c).replace(/"/g,'""')}`);
+                  csvRows.push('"' + cells.join('","') + '"');
+                }
+                const csvText = csvRows.join('\n');
+                const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `lock_events_${Date.now()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { try { URL.revokeObjectURL(url); document.body.removeChild(a); } catch (e) {} }, 2000);
+              } catch (e) { }
+            });
+            if (lockClearBtn) lockClearBtn.addEventListener('click', () => { try { if (typeof game.clearLockEvents === 'function') game.clearLockEvents(); lockRefresh(); } catch (e) {} });
+
+            function lockRefresh() {
+              try {
+                if (!lockStatsEl || !lockEventsList) return;
+                const s = typeof game.getLockStats === 'function' ? game.getLockStats() : {} as any;
+                const ev = typeof game.getLockEvents === 'function' ? game.getLockEvents() : [] as any[];
+                lockStatsEl.textContent = `total=${s.totalLocks||0}, anomalies=${s.anomalyCount||0}, last=${s.lastLockTs||'n/a'}`;
+                lockEventsList.innerHTML = '';
+                for (let i = Math.max(0, ev.length - 10); i < ev.length; i++) {
+                  const item = ev[i];
+                  const d = document.createElement('div');
+                  d.className = 'lock-event';
+                  d.style.padding = '4px 0';
+                  d.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+                  try { d.textContent = `${new Date(item.ts).toLocaleTimeString()} ${item.type} ${item.piece} before:${item.beforeFilled} after:${item.afterFilled} Δ:${item.delta}`; } catch (e) { d.textContent = JSON.stringify(item); }
+                  lockEventsList.appendChild(d);
+                }
+              } catch (e) {}
+            }
+
+            lockRefresh();
+            setInterval(lockRefresh, 1000);
+          } catch (e) {}
+        }
+      } catch (e) { }
+
+    // reset settings button (index.html uses reset-settings-2)
     try {
-      const resetBtn = document.getElementById('reset-settings') as HTMLButtonElement | null;
+      const resetBtn = document.getElementById('reset-settings-2') as HTMLButtonElement | null;
       if (resetBtn) {
         resetBtn.addEventListener('click', () => {
-          createSwatches('palette-outer-panel', outerColors, '--frame-bg', 5);
-          createSwatches('palette-inner-panel', innerColors, '--inner-bg', 5);
+          createSwatches('palette-outer-panel', outerColors, '--frame-bg', 0);
+          createSwatches('palette-inner-panel', innerColors, '--inner-bg', 0);
           try { const nextRange = document.getElementById('next-count-range') as HTMLInputElement | null; const nextNum = document.getElementById('next-count-number') as HTMLInputElement | null; if (nextRange && nextNum) { nextRange.value = '6'; nextNum.value = '6'; renderer && renderer.setNextCount && renderer.setNextCount(6); game && game.setNextQueueLength && game.setNextQueueLength(6); } } catch (e) {}
         });
       }

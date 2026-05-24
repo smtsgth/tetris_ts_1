@@ -97,12 +97,34 @@ export default class Renderer {
     const innerHeight = Math.max(0, boardHeight - padTop - padBottom - labelHeight - labelMarginBottom);
     // compute cell size: allow up to BLOCK_SIZE per cell, but shrink so nextCount pieces fit vertically
     const fitSize = innerHeight / (this.nextCount * 4);
-    const cellSize = Math.min(BLOCK_SIZE, fitSize);
+    const cellSize = Math.max(4, Math.min(BLOCK_SIZE, fitSize));
     this.nextCellSize = cellSize > 0 ? cellSize : BLOCK_SIZE;
-    // add horizontal side padding so previews have breathing room
-    const sidePadding = Math.max(4, Math.round(this.nextCellSize * 0.6));
+    // add horizontal side padding so previews have breathing room (further reduced)
+    const sidePadding = Math.max(1, Math.round(this.nextCellSize * 0.22));
     this.nextSidePadding = sidePadding;
-    fitCanvasPx(this.nextCanvas, 4 * this.nextCellSize + sidePadding * 2, innerHeight);
+    // also resize hold canvases so holds use the same per-block CSS size as the board/next
+    try {
+      if (this.holdCanvas1) fitCanvasPx(this.holdCanvas1, 4 * this.nextCellSize, 4 * this.nextCellSize);
+      if (this.holdCanvas2) fitCanvasPx(this.holdCanvas2, 4 * this.nextCellSize, 4 * this.nextCellSize);
+    } catch (e) { }
+    // First, resize the main board so its per-block size matches nextCellSize —
+    // do this before sizing the NEXT wrapper so we can base NEXT height on the final board dimensions.
+    try {
+      if (this.boardCanvas) {
+        fitCanvasPx(this.boardCanvas, COLS * this.nextCellSize, VISIBLE_ROWS * this.nextCellSize);
+      }
+    } catch (e) { }
+    // recompute final board height and next inner height after board resize
+    try {
+      const finalBoardHeight = this.boardCanvas ? this.boardCanvas.offsetHeight : boardHeight;
+      if (nextWrapper) {
+        nextWrapper.style.height = `${finalBoardHeight}px`;
+        nextWrapper.style.boxSizing = 'border-box';
+      }
+      const finalInnerHeight = Math.max(0, (this.boardCanvas ? this.boardCanvas.offsetHeight : boardHeight) - padTop - padBottom - labelHeight - labelMarginBottom);
+      // ensure next canvas fits into the updated wrapper height
+      fitCanvasPx(this.nextCanvas, 4 * this.nextCellSize + sidePadding * 2, finalInnerHeight);
+    } catch (e) { }
   }
 
   // animation state for score
@@ -384,10 +406,18 @@ export default class Renderer {
       this.clear(nextCtx, this.nextCanvas.width, this.nextCanvas.height);
       const next = (state.next || []).slice(0, this.nextCount);
       const cell = this.nextCellSize;
-      const border = Math.max(1, Math.floor(cell * 0.06));
-      // center the group of previews vertically inside the canvas
-      const contentHeight = cell * (this.nextCount * 4);
-      const offsetY = Math.max(0, (this.nextCanvas.clientHeight - contentHeight) / 2);
+      // reduce inner gap for Next preview blocks so pieces appear tighter
+      const border = Math.max(0.5, cell * 0.035);
+      // pack previews: use tighter stacking (less gap between previews)
+      const gapBetweenPreviewsBlocks = 1.0; // larger -> previews are closer (tighter)
+      const slotBlocks = 4 - gapBetweenPreviewsBlocks;
+      // compute total content height using actual previews to be drawn
+      const contentHeight = cell * (next.length * slotBlocks);
+      // place previews biased toward the top of the Next canvas (user requested "上の方へ")
+      const innerH = this.nextCanvas.clientHeight;
+      const centerSpace = Math.max(0, innerH - contentHeight);
+      const topBiasFactor = 0.02; // 0 = top-aligned, 0.5 = centered, 1 = bottom-aligned; smaller -> more top
+      const offsetY = Math.max(1, Math.round(centerSpace * topBiasFactor));
       const offsetX = this.nextSidePadding || 0;
       for (let i = 0; i < next.length; i++) {
         const shape = next[i];
@@ -406,14 +436,14 @@ export default class Renderer {
         const widthBlocks = maxC >= minC ? (maxC - minC + 1) : 0;
         const heightBlocks = maxR >= minR ? (maxR - minR + 1) : 0;
         const leftPad = (4 - widthBlocks) / 2; // allow fractional pad for perfect centering
-        const topPad = (4 - heightBlocks) / 2;
+        const topPad = (slotBlocks - heightBlocks) / 2;
         for (let r = 0; r < mat.length; r++) {
           for (let c = 0; c < mat[r].length; c++) {
             if (!mat[r][c]) continue;
             const color = COLORS[shape as keyof typeof COLORS];
             // position each next-piece block in its 4-row slot using scaled cell size
             const colIndex = leftPad + (c - minC);
-            const rowIndex = i * 4 + topPad + (r - minR);
+            const rowIndex = i * slotBlocks + topPad + (r - minR);
             const x = offsetX + colIndex * cell;
             const y = offsetY + rowIndex * cell;
             nextCtx.fillStyle = color;
@@ -447,9 +477,9 @@ export default class Renderer {
         if (widthBlocks >= 4) leftPad = Math.max(leftPad, minPad);
         let topPad = (4 - heightBlocks) / 2;
         if (heightBlocks >= 4) topPad = Math.max(topPad, minPad);
-        // render hold preview using the same per-block size as the main board
-        const cell = BLOCK_SIZE;
-        const borderCell = Math.max(1, Math.floor(cell * 0.06));
+        // render hold preview using the same per-block size as the main board/next
+        const cell = this.nextCellSize;
+        const borderCell = Math.max(0.5, cell * 0.035);
         for (let r = 0; r < mat.length; r++) {
           for (let c = 0; c < mat[r].length; c++) {
             if (!mat[r][c]) continue;
@@ -488,8 +518,8 @@ export default class Renderer {
         if (widthBlocks2 >= 4) leftPad2 = Math.max(leftPad2, minPad2);
         let topPad2 = (4 - heightBlocks2) / 2;
         if (heightBlocks2 >= 4) topPad2 = Math.max(topPad2, minPad2);
-        const cell2 = BLOCK_SIZE;
-        const borderCell2 = Math.max(1, Math.floor(cell2 * 0.06));
+                const cell2 = this.nextCellSize;
+                const borderCell2 = Math.max(0.5, cell2 * 0.035);
         for (let r = 0; r < mat2.length; r++) {
           for (let c = 0; c < mat2[r].length; c++) {
             if (!mat2[r][c]) continue;
@@ -635,9 +665,14 @@ export default class Renderer {
   }
 
   drawCell(ctx: CanvasRenderingContext2D, col: number, row: number, color: string) {
-    const x = col * BLOCK_SIZE;
-    const y = row * BLOCK_SIZE;
+    // determine dynamic cell size from the target canvas so board cells scale with canvas size
+    const canvasEl = ctx.canvas as HTMLCanvasElement;
+    const cssWidth = canvasEl.clientWidth || parseFloat(canvasEl.style.width) || (COLS * BLOCK_SIZE);
+    const cell = cssWidth / COLS;
+    const border = Math.max(1, Math.floor(cell * 0.06));
+    const x = col * cell;
+    const y = row * cell;
     ctx.fillStyle = color;
-    ctx.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+    ctx.fillRect(x + border, y + border, Math.max(0, cell - border * 2), Math.max(0, cell - border * 2));
   }
 }

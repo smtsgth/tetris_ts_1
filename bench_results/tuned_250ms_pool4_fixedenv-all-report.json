@@ -1,0 +1,30 @@
+{
+  "files": [
+    "tuned_250ms_pool4_fixedenv_run1-report.json",
+    "tuned_250ms_pool4_fixedenv_run2-report.json",
+    "tuned_250ms_pool4_fixedenv_run3-report.json",
+    "tuned_250ms_pool4_fixedenv_run4-report.json",
+    "tuned_250ms_pool4_fixedenv_run5-report.json",
+    "tuned_250ms_pool4_fixedenv_run6-report.json",
+    "tuned_250ms_pool4_fixedenv_run7-report.json",
+    "tuned_250ms_pool4_fixedenv_run8-report.json",
+    "tuned_250ms_pool4_fixedenv_run9-report.json",
+    "tuned_250ms_pool4_fixedenv_run10-report.json"
+  ],
+  "count": 10,
+  "meanOfMeans": 54.44,
+  "medianOfMeans": 49.19,
+  "p90OfMeans": 66.66,
+  "means": [
+    40.52,
+    49.84,
+    73.18,
+    48.54,
+    66.66,
+    65.48,
+    44.74,
+    47.78,
+    46.66,
+    61
+  ]
+}

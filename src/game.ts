@@ -52,6 +52,10 @@ export default class Game {
   private combo = 0;
   private lastRotationKick: [number, number] | null = null;
   private notifications: Array<{ msg: string; ts: number }> = [];
+  // runtime lock monitoring
+  private lockEvents: Array<any> = [];
+  private lockStats: { totalLocks: number; anomalyCount: number; lastLockTs: number; rapidLockThresholdMs: number } = { totalLocks: 0, anomalyCount: 0, lastLockTs: 0, rapidLockThresholdMs: 50 };
+  private monitorLocks: boolean = true;
 
   constructor() {
     this.board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -92,6 +96,33 @@ export default class Game {
 
   onChange(fn: () => void) { this.listeners.push(fn); }
   private emit() { this.listeners.forEach(f => f()); }
+
+  // Lock monitoring APIs
+  public getLockStats() {
+    return { ...this.lockStats };
+  }
+
+  public getLockEvents() {
+    return this.lockEvents.slice();
+  }
+
+  public clearLockEvents() {
+    this.lockEvents = [];
+    this.lockStats.totalLocks = 0;
+    this.lockStats.anomalyCount = 0;
+    this.lockStats.lastLockTs = 0;
+  }
+
+  public exportLockEventsToWindow() {
+    try {
+      (window as any).__gameLockEvents = this.getLockEvents();
+      (window as any).__gameLockStats = this.getLockStats();
+    } catch (e) {}
+  }
+
+  public setLockMonitorEnabled(v: boolean) { this.monitorLocks = !!v; }
+
+  public setLockRapidThresholdMs(ms: number) { this.lockStats.rapidLockThresholdMs = Math.max(0, Math.floor(Number(ms) || 0)); }
 
   spawn() {
     // Peek next piece and only mutate the queue if spawn succeeds. This prevents the
@@ -271,6 +302,12 @@ export default class Game {
     const piece = this.current;
     this.current = null;
 
+    const now = Date.now();
+    let beforeFilled = 0;
+    if (this.monitorLocks) {
+      try { beforeFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0); } catch (e) { beforeFilled = 0; }
+    }
+
     const tspinType = this.lastMoveWasRotation && piece.type === 'T' ? this.isTSpin(piece) : 'none';
     const m = piece.matrix;
     for (let r = 0; r < m.length; r++) {
@@ -283,8 +320,29 @@ export default class Game {
         }
       }
     }
+
     const cleared = this.clearLines();
     this.addScore(cleared, tspinType);
+
+    // record lock event
+    if (this.monitorLocks) {
+      let afterFilled = 0;
+      try { afterFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0); } catch (e) { afterFilled = 0; }
+      try {
+        this.lockStats.totalLocks = (this.lockStats.totalLocks || 0) + 1;
+        const delta = this.lockStats.lastLockTs ? (now - this.lockStats.lastLockTs) : Number.POSITIVE_INFINITY;
+        const isRapid = typeof delta === 'number' && delta < (this.lockStats.rapidLockThresholdMs || 50);
+        const ev: any = { ts: now, type: isRapid ? 'rapid-lock' : 'lock', piece: piece.type, beforeFilled, afterFilled, delta };
+        this.lockEvents.push(ev);
+        if (isRapid) {
+          this.lockStats.anomalyCount = (this.lockStats.anomalyCount || 0) + 1;
+          try { this.pushNotification('Lock anomaly: rapid consecutive lock detected'); } catch (e) {}
+          try { console.warn('Lock anomaly detected', ev); } catch (e) {}
+        }
+        this.lockStats.lastLockTs = now;
+      } catch (e) {}
+    }
+
     // notifications
     if (tspinType === 'full') this.pushNotification('T-Spin');
     else if (tspinType === 'mini') this.pushNotification('T-Spin Mini');

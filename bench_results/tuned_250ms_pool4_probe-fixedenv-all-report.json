@@ -1,0 +1,30 @@
+{
+  "files": [
+    "tuned_250ms_pool4_probe_run1-report.json",
+    "tuned_250ms_pool4_probe_run2-report.json",
+    "tuned_250ms_pool4_probe_run3-report.json",
+    "tuned_250ms_pool4_probe_run4-report.json",
+    "tuned_250ms_pool4_probe_run5-report.json",
+    "tuned_250ms_pool4_probe_run6-report.json",
+    "tuned_250ms_pool4_probe_run7-report.json",
+    "tuned_250ms_pool4_probe_run8-report.json",
+    "tuned_250ms_pool4_probe_run9-report.json",
+    "tuned_250ms_pool4_probe_run10-report.json"
+  ],
+  "count": 10,
+  "meanOfMeans": 57.03399999999999,
+  "medianOfMeans": 57.24,
+  "p90OfMeans": 69.52,
+  "means": [
+    58.74,
+    56.6,
+    58.26,
+    38.22,
+    53.82,
+    69.52,
+    52.7,
+    74.38,
+    50.22,
+    57.88
+  ]
+}

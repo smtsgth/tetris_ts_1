@@ -8,11 +8,20 @@ const game = new Game();
 const renderer = new Renderer(game);
 const input = new Input(game);
 const ai = new AI(game);
+// Apply faster defaults for interactive responsiveness (can be tuned)
+try {
+  ai.setLookahead(1);
+  ai.setBeamWidthBase(1);
+  ai.setPerNodeLimit(1);
+  ai.setMaxConcurrentWorkers(8);
+} catch (e) {}
 // expose for debugging/automation
 (window as any).game = game;
 (window as any).renderer = renderer;
 (window as any).input = input;
 (window as any).ai = ai;
+// Pre-initialize worker pool on page load to reduce first-request overhead
+try { if (typeof (ai as any).setWorkerPoolSize === 'function') (ai as any).setWorkerPoolSize((ai as any).getWorkerPoolSize ? (ai as any).getWorkerPoolSize() : 3); } catch (e) {}
 function loop(ts: number) {
   game.update(ts);
   requestAnimationFrame(loop);

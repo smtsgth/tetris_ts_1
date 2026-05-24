@@ -7,11 +7,20 @@ const game = new Game();
 const renderer = new Renderer(game);
 const input = new Input(game);
 const ai = new AI(game);
+// Apply faster defaults for interactive responsiveness (mirrors src change)
+try {
+    ai.setLookahead(1);
+    ai.setBeamWidthBase(1);
+    ai.setPerNodeLimit(1);
+    ai.setMaxConcurrentWorkers(8);
+} catch (e) { }
 // expose for debugging/automation
 window.game = game;
 window.renderer = renderer;
 window.input = input;
 window.ai = ai;
+// Pre-initialize worker pool on page load to reduce first-request overhead
+try { if (typeof ai.setWorkerPoolSize === 'function') ai.setWorkerPoolSize(ai.getWorkerPoolSize ? ai.getWorkerPoolSize() : 3); } catch (e) { }
 function loop(ts) {
     game.update(ts);
     requestAnimationFrame(loop);

@@ -16,6 +16,8 @@
     "test:ci": "node ./scripts/test-ci.js",
     "test:watch": "vitest --watch",
     "aggregate-profiles": "node ./scripts/aggregate_profiles.js"
+    ,
+    "bench:combo": "node ./scripts/run_combo_bench.js"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

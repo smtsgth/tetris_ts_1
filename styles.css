@@ -1,30 +1,118 @@
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; }
 #bodyfix { }
-body { display:flex; align-items:flex-start; justify-content:flex-start; padding:20px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; background:#eef3f8; color:#111 }
+body { min-height:100vh; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:20px 20px 20px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; background:var(--page-bg, #eef3f8); color:#111 }
 :root {
 	--frame-bg: #0f0f0f;
 	--frame-text: #ddd;
 	--inner-bg: rgba(20,20,20,0.92);
 	--inner-text: #fff;
 	--accent: #4facfe;
+	--page-bg: #f4f7fb;
+	--controls-bg: rgba(15,15,15,0.96);
+	--controls-foreground: var(--frame-text);
 }
-#app { display:flex; flex-direction:column; gap:12px; align-items:stretch; padding-top:32px; max-width:1200px; margin:0 auto; width:100%; }
+#app { display:flex; flex-direction:column; gap:12px; align-items:stretch; padding-top:32px; max-width:1200px; margin:0 auto; width:100%; flex: 1 0 auto; }
 #game-area {
 	display: grid;
-	grid-template-columns: 260px 380px 300px 1fr;
-	grid-auto-rows: min-content;
-	gap: 22px;
-	align-items: start;
-	width: 100%;
-	box-sizing: border-box;
-	position: relative;
+ 	/* column layout: left(hud/holds) | board | next/hud */
+ 	/* Fix left and center columns so the right HUD column always starts to the right of the board */
+	grid-template-columns: 320px 240px minmax(360px, 400px);
+ 	grid-template-areas: "left board hud";
+ 	grid-auto-rows: min-content;
+	gap: 4px;
+ 	justify-items: start;
+ 	align-items: start;
+ 	width: 100%;
+ 	box-sizing: border-box;
+ 	position: relative;
 }
-#hud { display:flex; flex-direction:column; gap:12px }
+
+/* Place primary regions: holds/panels on left, board on right */
+/* Place primary regions: holds/panels on left, board in middle, HUD on right */
+#left-controls { display: none; }
+#left-hud { grid-area: left; display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+#board-wrap { grid-area: board; position: relative; justify-self: center; margin-bottom: 6px; }
+#hud { grid-area: hud; align-self: start; justify-self: start; display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:100%; max-width:400px; box-sizing:border-box; overflow:visible; }
+#board { z-index: 1; display:block; }
+#left-controls, #left-hud, #hud, #board-wrap { grid-row: 1; }
+/* hud flex settings consolidated above */
+
+/* Right side controls that sit to the right of the Next box */
+#right-controls { display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+
+/* Columns inside right-controls */
+.right-col { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:100%; min-width:0; }
+
+/* hud top row: keep Next and settings side-by-side when space allows */
+.hud-top { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:100%; }
+
+@media (min-width: 1100px) {
+	/* On wide screens place Next and settings side-by-side */
+	.hud-top { flex-direction: row; }
+
+	/* layout right-controls as two columns: left = input+palette (flexible), right = AI (fixed) */
+	#right-controls { flex-direction: row; align-items:flex-start; gap:12px; }
+	#right-controls .right-col { width: auto; }
+	#rc-left { flex: 1 1 auto; min-width:220px; }
+	#rc-center { flex: 0 0 400px; min-width:300px; }
+}
+
+/* Constrain HUD children to avoid overflowing the grid column */
+#hud > * { box-sizing: border-box; max-width: 100%; }
+
+/* Constrain HUD children to avoid overflowing the grid column */
+#hud > * { box-sizing: border-box; max-width: 100%; }
 canvas { background: transparent; image-rendering: pixelated; }
 .label { color:#aaa; font-size:12px; margin-bottom:6px }
+/* Center primary panel headings: 入力設定 / 配色設定 / AI 設定 */
+#input-settings .label, #palette-panel .label, #ai-panel .label, #input-settings-label {
+	text-align:center; width:100%; color: #ffffff; font-weight: 900; font-size: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+}
+
+/* AI panel: show labels on a single line and reserve fixed space for slider to avoid overlap */
+#ai-panel .setting-row { display: grid; grid-template-columns: 220px var(--short-range-width) 56px; gap:8px; align-items: center; width:100%; }
+/* make the label single-line (no wrap) and allow it to extend horizontally so full text is visible */
+#ai-panel .setting-row label { display:block; width:auto; white-space: nowrap; overflow: visible; text-overflow: clip; }
+
+/* Ensure the center right column is wide enough to accommodate AI labels */
+#rc-center { width:480px; min-width:360px; }
 #info { background:#111; padding:8px; border-radius:6px; color:#ddd }
-#controls { font-size:12px; color:#333 }
+#controls {
+	width: 100%;
+	font-size: 12px;
+	color: var(--controls-foreground, var(--frame-text));
+	/* use computed controls background (RGBA) when available, fall back to --frame-bg */
+	background: var(--controls-bg, var(--frame-bg));
+	padding: 8px 12px;
+	box-sizing: border-box;
+	border-top: 1px solid rgba(255,255,255,0.03);
+	box-shadow: 0 -6px 10px rgba(0,0,0,0.18);
+	/* clamp the entire controls block to 2 lines of text */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	line-height: 0.95;
+}
+
+/* reduce vertical gap between the board and operation instructions (pull controls up) */
+#controls { margin-top: 8px; }
+
+@media (max-width: 480px) {
+	/* smaller spacing on narrow viewports */
+	#board-wrap { margin-bottom: 6px; }
+	#controls { margin-top: 6px; }
+}
+.controls-line {
+	display: inline; /* allow parent clamp to limit total lines */
+	margin-right: 10px;
+	color: var(--controls-foreground, var(--frame-text));
+	font-weight: 700;
+	font-size: 16px;
+	line-height: 0.95;
+	white-space: normal;
+}
 
 /* B2B icon */
 .b2b-icon { display:inline-block; padding:6px 8px; border-radius:4px; font-weight:bold; margin-right:6px; background:#333; color:#aaa }
@@ -46,10 +134,12 @@ canvas { background: transparent; image-rendering: pixelated; }
 /* overlay animation for T-Spin / Tetris */
 .sr-only { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; }
 
-#overlay { position:absolute; pointer-events:none; left:0; top:0; display:flex; align-items:center; justify-content:center }
-#board.dimmed { filter: brightness(0.38) contrast(0.95); transition: filter 200ms ease; }
-.game-over { position:absolute; left:0; top:0; display:none; align-items:center; justify-content:center; pointer-events:auto; z-index:60; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
 .game-over.show { display:flex; animation: gameOverFade 260ms ease both }
+/* overlays now sit inside #board-wrap and fill its area */
+#overlay { position:absolute; pointer-events:none; left:0; top:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; z-index:11000 }
+#board.dimmed { filter: brightness(0.38) contrast(0.95); transition: filter 200ms ease; }
+.game-over, #pause-overlay { position:absolute; left:0; top:0; width:100%; height:100%; display:none; align-items:center; justify-content:center; pointer-events:auto; z-index:11100; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+.game-over.show { display:flex; }
 .game-over-inner { background: var(--inner-bg); border-radius:12px; padding:18px 22px; text-align:center; color:var(--inner-text); min-width:240px; box-shadow: 0 8px 30px rgba(0,0,0,0.6) }
 #game-over-title { font-size:28px; font-weight:bold; margin-bottom:12px }
 .restart-btn { background:#ff5757; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; cursor:pointer }
@@ -64,51 +154,77 @@ canvas { background: transparent; image-rendering: pixelated; }
 	100% { transform: scale(1); }
 }
 
-/* subtle styling for HUD boxes */
-#next { background:var(--frame-bg); padding:8px; border-radius:8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03); display:flex; flex-direction:column; color:var(--frame-text); }
-.hold-box { background:var(--frame-bg); padding:8px; border-radius:8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03); display:flex; flex-direction:column; color:var(--frame-text); align-items:center; }
-#holds { display:flex; gap:12px; align-items:flex-start; }
-#next .label, .hold-box .label { color:var(--frame-text); margin-bottom:6px }
+#next { background:var(--frame-bg); padding:1px; border-radius:8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03); display:flex; flex-direction:column; color:var(--frame-text); flex: 0 1 140px; min-width:120px; max-width:180px; margin-left: 0px; }
+.hold-box { background:var(--frame-bg); padding:8px; border-radius:8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03); display:flex; flex-direction:column; color:var(--frame-text); align-items:center; width:150px; box-sizing:border-box }
+#holds { display:flex; gap:4px; align-items:flex-start; }
+.next .label {}
+#next .label { color:#ffffff; margin-bottom:4px; font-weight:900; font-size:16px; text-transform:uppercase; text-shadow: 0 1px 2px rgba(0,0,0,0.65); }
+
+/* Make Hold labels and left-hud info text muted/consistent with HUD palette */
+.hold-box .label { color: #6b7280; font-weight:700; font-size:14px; text-transform:uppercase; }
+#left-hud #info { color: #6b7280; }
+#left-hud #info > * { color: #6b7280; font-weight:600 }
 #next canvas, .hold-box canvas { background: transparent; border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,0.6); display:block; align-self:center; }
 
-/* make the next box height match the board and vertically center its content */
-#next { display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+/* make the next box height match the board and align its content to the top */
+#next { display:flex; flex-direction:column; justify-content:flex-start; overflow:hidden; flex: 0 1 140px; min-width:120px; max-width:180px; }
+
+/* allow renderer to set canvas size; make canvas fill its wrapper */
+#next canvas { width:100%; height:100%; display:block; }
 
 /* left-most column: input settings / palettes */
-#left-controls { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:260px }
-#left-controls #input-settings, #left-controls #palette-panel, #left-controls #ai-panel { width:100%; background:var(--frame-bg); padding:8px; border-radius:6px; color:var(--frame-text) }
-#left-controls .setting-row { display:grid; grid-template-columns: 90px minmax(0, 1fr) 56px; gap:8px; align-items:center; width:100%; }
-#left-controls .setting-row label { margin:0; color:#bbb }
-#left-controls input[type="number"] { width:56px }
-#left-controls select { flex:1; min-width:0 }
+#left-controls { display:none }
+#left-controls #input-settings, #left-controls #palette-panel, #left-controls #ai-panel, #right-controls #input-settings, #right-controls #palette-panel, #right-controls #ai-panel { width:100%; background:var(--frame-bg); padding:8px; border-radius:6px; color:var(--frame-text) }
+#left-controls .setting-row, #right-controls .setting-row { display:grid; grid-template-columns: 90px minmax(0, 1fr) 56px; gap:8px; align-items:center; width:100%; }
+/* Ensure Preset select in input-settings has enough minimum width to show full value */
+#input-settings .setting-row { grid-template-columns: 90px minmax(120px, 1fr) 56px; }
+#left-controls .setting-row label, #right-controls .setting-row label { margin:0; color:#bbb }
+#left-controls input[type="number"], #right-controls input[type="number"] { width:56px }
+#left-controls select, #right-controls select { flex:1; min-width:0 }
+/* Ensure preset select in input settings shows full selected value */
+#input-settings .setting-row select, #preset-select { width: 100%; min-width: 0; display: block; }
 
 /* second column: hold / info */
-#left-hud { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:380px; margin-right:18px }
+#left-hud { display:flex; flex-direction:column; gap:8px; align-items:flex-start; width:auto; min-width:280px; margin-right:-20px }
 
 /* Responsive: stack controls on narrow viewports (mobile / portrait) */
-@media (max-width: 680px) {
-	#game-area { flex-direction: column; gap:12px; align-items:center }
-	#left-controls, #left-hud { width:92%; max-width:720px }
-	#board { width:92%; height: auto; max-width:420px }
-	#hud { align-items:center }
-	#left-controls .setting-row, #left-hud .setting-row { grid-template-columns: 110px 1fr 56px }
-	#left-controls { align-items:center }
+@media (max-width: 1100px) {
+	/* Tighten grid for mid-size screens so columns don't create excessive whitespace */
+	#game-area { grid-template-columns: 260px 300px 320px; gap: 6px; }
+	#left-hud { min-width:240px; margin-right:0 }
+	#rc-center { width:320px; min-width:280px }
+	#left-hud #info { width: auto; max-width:300px }
+	.right-col { width:200px; min-width:140px }
+}
+
+/* Existing mobile breakpoint: stack vertically at small widths */
+@media (max-width: 480px) {
+ 	/* switch to a vertical flex layout so children center correctly on narrow screens */
+ 	#game-area { display: flex; flex-direction: column; gap:12px; align-items:center; }
+ 	#left-controls, #left-hud, #right-controls { width:92%; max-width:720px }
+ 	#board { width:92%; height: auto; max-width:420px }
+ 	#hud { align-items:center }
+ 	#left-controls .setting-row, #left-hud .setting-row, #right-controls .setting-row { grid-template-columns: 110px 1fr 56px }
+ 	#left-controls { align-items:center }
 }
 
 @media (max-width: 480px) {
-	#left-controls .setting-row, #left-hud .setting-row { grid-template-columns: 1fr; gap:6px }
-	#left-controls .setting-row label, #left-hud .setting-row label { width:100%; }
-	#left-controls input[type="number"], #left-hud input[type="number"] { width:100%; }
+	#left-controls .setting-row, #left-hud .setting-row, #right-controls .setting-row { grid-template-columns: 1fr; gap:6px }
+	#left-controls .setting-row label, #left-hud .setting-row label, #right-controls .setting-row label { width:100%; }
+	#left-controls input[type="number"], #left-hud input[type="number"], #right-controls input[type="number"] { width:100%; }
 	#ai-panel { width:100%; }
+
+	/* On very small screens keep the AI panel as 3-column rows so sliders remain to the right of labels */
+	#right-controls #ai-panel .setting-row { grid-template-columns: 1fr var(--short-range-width) 56px; }
 }
-#left-hud #info { width:100%; background:var(--frame-bg); padding:8px; border-radius:6px; color:var(--frame-text) }
+#left-hud #info { width:312px; background:var(--frame-bg); padding:8px; border-radius:6px; color:var(--frame-text) }
 #left-hud .setting-row { display:grid; grid-template-columns: 90px minmax(0, 1fr) 56px; gap:8px; align-items:center; width:100%; }
 #left-hud .setting-row label { margin:0; color:#bbb }
 #left-hud input[type="number"] { width:56px }
 #left-hud select { flex:1; min-width:0 }
 
 /* styled range inputs for left columns */
-#left-controls input[type="range"], #left-hud input[type="range"] {
+#left-controls input[type="range"], #left-hud input[type="range"], #right-controls input[type="range"] {
 	-webkit-appearance: none;
 	appearance: none;
 	height: 10px;
@@ -120,11 +236,11 @@ canvas { background: transparent; image-rendering: pixelated; }
 	box-sizing: border-box;
 	max-width: 100%;
 }
-#left-controls input[type="range"]::-webkit-slider-runnable-track, #left-hud input[type="range"]::-webkit-slider-runnable-track {
+#left-controls input[type="range"]::-webkit-slider-runnable-track, #left-hud input[type="range"]::-webkit-slider-runnable-track, #right-controls input[type="range"]::-webkit-slider-runnable-track {
 	height: 10px;
 	border-radius: 999px;
 }
-#left-controls input[type="range"]::-webkit-slider-thumb, #left-hud input[type="range"]::-webkit-slider-thumb {
+#left-controls input[type="range"]::-webkit-slider-thumb, #left-hud input[type="range"]::-webkit-slider-thumb, #right-controls input[type="range"]::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	width: 16px;
 	height: 16px;
@@ -134,11 +250,11 @@ canvas { background: transparent; image-rendering: pixelated; }
 	box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 	border: 2px solid #2b8cf6;
 }
-#left-controls input[type="range"]::-moz-range-track, #left-hud input[type="range"]::-moz-range-track { height: 10px; border-radius: 999px; background: linear-gradient(90deg,#2b8cf6,#9ad0ff); }
-#left-controls input[type="range"]::-moz-range-thumb, #left-hud input[type="range"]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid #2b8cf6; box-shadow:0 2px 6px rgba(0,0,0,0.25); }
+#left-controls input[type="range"]::-moz-range-track, #left-hud input[type="range"]::-moz-range-track, #right-controls input[type="range"]::-moz-range-track { height: 10px; border-radius: 999px; background: linear-gradient(90deg,#2b8cf6,#9ad0ff); }
+#left-controls input[type="range"]::-moz-range-thumb, #left-hud input[type="range"]::-moz-range-thumb, #right-controls input[type="range"]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid #2b8cf6; box-shadow:0 2px 6px rgba(0,0,0,0.25); }
 
 /* improve focus visibility */
-#left-controls input[type="range"]:focus, #left-hud input[type="range"]:focus { box-shadow: 0 0 0 4px rgba(43,140,246,0.12); }
+#left-controls input[type="range"]:focus, #left-hud input[type="range"]:focus, #right-controls input[type="range"]:focus { box-shadow: 0 0 0 4px rgba(43,140,246,0.12); }
 
 /* log entry animation (smoother) */
 #log li { animation: logFade 520ms cubic-bezier(.2,.8,.2,1) both; }
@@ -198,6 +314,14 @@ kbd { display:inline-block; background:rgba(255,255,255,0.06); border-radius:6px
 .palette-swatch { width:26px; height:20px; border-radius:4px; border:2px solid rgba(0,0,0,0.08); cursor:pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
 .palette-swatch.selected { outline:3px solid rgba(255,255,255,0.12); transform:translateY(-2px); }
 
+/* palette sections: place swatches under the label */
+.palette-section { width:100%; margin-bottom:8px }
+.palette-section .label { margin-bottom:6px }
+.palette-row { margin-top:6px }
+
+/* allow hold canvases to be sized by renderer so they match Next/board block sizing */
+.hold-box canvas { width:100%; height:auto; display:block; align-self:center }
+
 /* hold flash animations: saved vs swapped visual states */
 .hold-box.hold-flash { transition: transform 40ms cubic-bezier(.2,.9,.2,1), box-shadow 40ms cubic-bezier(.2,.9,.2,1); will-change: transform, box-shadow; }
 
@@ -214,3 +338,19 @@ kbd { display:inline-block; background:rgba(255,255,255,0.06); border-radius:6px
 #toast-container { position:fixed; right:20px; bottom:20px; z-index:120; display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
 .toast { background: rgba(0,0,0,0.78); color:#fff; padding:10px 14px; border-radius:10px; box-shadow: 0 8px 30px rgba(0,0,0,0.42); transform: translateY(8px); opacity:0; transition: transform 280ms ease, opacity 280ms ease; }
 .toast.show { transform: translateY(0); opacity:1; }
+
+#right-controls #ai-panel .setting-row { display: grid; grid-template-columns: 220px var(--short-range-width) 56px; gap:8px; align-items: center; width:100%; }
+#right-controls #ai-panel .setting-row label { display:block; width:auto; white-space: nowrap; overflow: visible; text-overflow: clip; }
+
+/* Ensure AI sliders sit to the right of the control column to avoid overlapping labels */
+#right-controls #ai-panel .setting-row input[type="range"] { justify-self: end; width: var(--short-range-width); }
+
+/* Ensure center right column has enough width for AI labels */
+#rc-center { width:400px; min-width:300px; }
+:root { --short-range-width: 92px; }
+
+#input-settings input[type="range"], #ai-panel input[type="range"] {
+	/* half-length sliders for input settings and AI panel (fixed pixel width for consistency) */
+	width: var(--short-range-width);
+	max-width: 100%;
+}

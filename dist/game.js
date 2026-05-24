@@ -31,6 +31,10 @@ export default class Game {
         this.combo = 0;
         this.lastRotationKick = null;
         this.notifications = [];
+        // runtime lock monitoring
+        this.lockEvents = [];
+        this.lockStats = { totalLocks: 0, anomalyCount: 0, lastLockTs: 0, rapidLockThresholdMs: 50 };
+        this.monitorLocks = true;
         this.board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
         this.bag = new Bag();
         this.reset();
@@ -81,6 +85,28 @@ export default class Game {
     }
     onChange(fn) { this.listeners.push(fn); }
     emit() { this.listeners.forEach(f => f()); }
+    // Lock monitoring APIs
+    getLockStats() {
+        return Object.assign({}, this.lockStats);
+    }
+    getLockEvents() {
+        return this.lockEvents.slice();
+    }
+    clearLockEvents() {
+        this.lockEvents = [];
+        this.lockStats.totalLocks = 0;
+        this.lockStats.anomalyCount = 0;
+        this.lockStats.lastLockTs = 0;
+    }
+    exportLockEventsToWindow() {
+        try {
+            window.__gameLockEvents = this.getLockEvents();
+            window.__gameLockStats = this.getLockStats();
+        }
+        catch (e) { }
+    }
+    setLockMonitorEnabled(v) { this.monitorLocks = !!v; }
+    setLockRapidThresholdMs(ms) { this.lockStats.rapidLockThresholdMs = Math.max(0, Math.floor(Number(ms) || 0)); }
     spawn() {
         // Peek next piece and only mutate the queue if spawn succeeds. This prevents the
         // next preview from advancing when the spawn immediately results in game over.
@@ -286,21 +312,64 @@ export default class Game {
     lock() {
         if (!this.current)
             return;
-        const tspinType = this.lastMoveWasRotation && this.current.type === 'T' ? this.isTSpin(this.current) : 'none';
-        const m = this.current.matrix;
+        // prevent re-entrant/double-lock: capture current piece and clear it immediately
+        const piece = this.current;
+        this.current = null;
+        const now = Date.now();
+        let beforeFilled = 0;
+        if (this.monitorLocks) {
+            try {
+                beforeFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0);
+            }
+            catch (e) {
+                beforeFilled = 0;
+            }
+        }
+        const tspinType = this.lastMoveWasRotation && piece.type === 'T' ? this.isTSpin(piece) : 'none';
+        const m = piece.matrix;
         for (let r = 0; r < m.length; r++) {
             for (let c = 0; c < m[r].length; c++) {
                 if (!m[r][c])
                     continue;
-                const x = this.current.x + c;
-                const y = this.current.y + r;
+                const x = piece.x + c;
+                const y = piece.y + r;
                 if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
-                    this.board[y][x] = this.current.type;
+                    this.board[y][x] = piece.type;
                 }
             }
         }
         const cleared = this.clearLines();
         this.addScore(cleared, tspinType);
+        // record lock event
+        if (this.monitorLocks) {
+            let afterFilled = 0;
+            try {
+                afterFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0);
+            }
+            catch (e) {
+                afterFilled = 0;
+            }
+            try {
+                this.lockStats.totalLocks = (this.lockStats.totalLocks || 0) + 1;
+                const delta = this.lockStats.lastLockTs ? (now - this.lockStats.lastLockTs) : Number.POSITIVE_INFINITY;
+                const isRapid = typeof delta === 'number' && delta < (this.lockStats.rapidLockThresholdMs || 50);
+                const ev = { ts: now, type: isRapid ? 'rapid-lock' : 'lock', piece: piece.type, beforeFilled, afterFilled, delta };
+                this.lockEvents.push(ev);
+                if (isRapid) {
+                    this.lockStats.anomalyCount = (this.lockStats.anomalyCount || 0) + 1;
+                    try {
+                        this.pushNotification('Lock anomaly: rapid consecutive lock detected');
+                    }
+                    catch (e) { }
+                    try {
+                        console.warn('Lock anomaly detected', ev);
+                    }
+                    catch (e) { }
+                }
+                this.lockStats.lastLockTs = now;
+            }
+            catch (e) { }
+        }
         // notifications
         if (tspinType === 'full')
             this.pushNotification('T-Spin');

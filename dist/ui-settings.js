@@ -13,9 +13,43 @@ export default function attachInputSettings(input) {
         const game = window.game;
         const renderer = window.renderer;
         const ai = window.ai;
-        // palette colors: 2 dark, 5 light (indexes 0-6)
-        const outerColors = ['#050505', '#111213', '#2f3e46', '#556b86', '#9fb4d9', '#dbeafe', '#ffffff'];
-        const innerColors = ['#0b1221', '#101827', '#1f6f63', '#f59e0b', '#ef4444', '#fef3c7', '#ffffff'];
+        // palette colors arranged as column pairs: [topBright, bottomDark, ...]
+        // top row: white, light green, light blue, light yellow, light orange
+        // bottom row: black, dark green, dark blue, dark orange, gray
+        const outerColors = ['#ffffff', '#050505', '#dcfce7', '#1f6f63', '#dbeafe', '#0b2f6b', '#f3f4f6', '#f59e0b', '#fff4e6', '#6b7280'];
+        // make board (inner) palette use the same swatches as HUD
+        const innerColors = outerColors.slice();
+            // Helpers: convert hex to RGB, compute luminance, pick readable foreground, set controls bg/fg
+            function hexToRgb(hex) {
+                const h = hex.replace('#', '');
+                const norm = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+                const bigint = parseInt(norm, 16);
+                return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+            }
+            function relativeLuminance(r, g, b) {
+                const srgb = [r / 255, g / 255, b / 255].map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+                return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+            }
+            function pickForeground(hex) {
+                try {
+                    const _a = hexToRgb(hex), r = _a.r, g = _a.g, b = _a.b;
+                    const L = relativeLuminance(r, g, b);
+                    return L < 0.5 ? '#ffffff' : '#111111';
+                }
+                catch (e) {
+                    return '#ffffff';
+                }
+            }
+            function applyControlsStyle(hex) {
+                try {
+                    const _a = hexToRgb(hex), r = _a.r, g = _a.g, b = _a.b;
+                    const alpha = 0.9;
+                    const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    document.documentElement.style.setProperty('--controls-bg', rgba);
+                    document.documentElement.style.setProperty('--controls-foreground', pickForeground(hex));
+                }
+                catch (e) { }
+            }
         function createSwatches(containerId, colors, cssVar, defaultIndex = 5) {
             const container = document.getElementById(containerId);
             if (!container)
@@ -31,6 +65,7 @@ export default function attachInputSettings(input) {
                     // update selected class
                     Array.from(container.children).forEach(ch => ch.classList.remove('selected'));
                     sw.classList.add('selected');
+                    if (cssVar === '--frame-bg') applyControlsStyle(col);
                 });
                 container.appendChild(sw);
             });
@@ -40,10 +75,23 @@ export default function attachInputSettings(input) {
             if (child)
                 child.classList.add('selected');
             document.documentElement.style.setProperty(cssVar, colors[idx]);
+            if (cssVar === '--frame-bg') applyControlsStyle(colors[idx]);
         }
-        // render palette pickers
-        createSwatches('palette-outer-panel', outerColors, '--frame-bg', 5);
-        createSwatches('palette-inner-panel', innerColors, '--inner-bg', 5);
+        // render palette pickers (default selection = first swatch)
+        createSwatches('palette-outer-panel', outerColors, '--frame-bg', 0);
+        createSwatches('palette-inner-panel', innerColors, '--inner-bg', 0);
+        // set title attributes for AI labels so full text is visible on hover (since labels are single-line)
+        try {
+            Array.from(document.querySelectorAll('#ai-panel .setting-row label, #right-controls #ai-panel .setting-row label')).forEach(function (el) {
+                try {
+                    var t = (el.textContent || '').trim();
+                    if (t && !el.getAttribute('title'))
+                        el.setAttribute('title', t);
+                }
+                catch (e) { }
+            });
+        }
+        catch (e) { }
         // DAS/ARR/Soft Drop wiring
         try {
             const dasRange = document.getElementById('das-range');
@@ -332,6 +380,46 @@ export default function attachInputSettings(input) {
                                 }
                                 catch (e) { } });
                             }
+                            // hold/higher-risk tuning
+                            try {
+                                const holdThrInput = document.getElementById('hold-improvement-threshold');
+                                const holdDebounceInput = document.getElementById('hold-debounce-ms');
+                                const highRiskMaxInput = document.getElementById('high-risk-max-height');
+                                const highRiskHolesInput = document.getElementById('high-risk-holes');
+                                if (ai && holdThrInput && typeof ai.getHoldImprovementThreshold === 'function') {
+                                    const cur = ai.getHoldImprovementThreshold();
+                                    holdThrInput.value = String(cur);
+                                    holdThrInput.addEventListener('change', () => { const v = Number(holdThrInput.value); try {
+                                        ai.setHoldImprovementThreshold(v);
+                                    }
+                                    catch (e) { } });
+                                }
+                                if (ai && holdDebounceInput && typeof ai.getHoldDebounceMs === 'function') {
+                                    const cur = ai.getHoldDebounceMs();
+                                    holdDebounceInput.value = String(cur);
+                                    holdDebounceInput.addEventListener('change', () => { const v = Number(holdDebounceInput.value); try {
+                                        ai.setHoldDebounceMs(v);
+                                    }
+                                    catch (e) { } });
+                                }
+                                if (ai && highRiskMaxInput && typeof ai.getHighRiskMaxHeight === 'function') {
+                                    const cur = ai.getHighRiskMaxHeight();
+                                    highRiskMaxInput.value = String(cur);
+                                    highRiskMaxInput.addEventListener('change', () => { const v = Number(highRiskMaxInput.value); try {
+                                        ai.setHighRiskMaxHeight(v);
+                                    }
+                                    catch (e) { } });
+                                }
+                                if (ai && highRiskHolesInput && typeof ai.getHighRiskHoles === 'function') {
+                                    const cur = ai.getHighRiskHoles();
+                                    highRiskHolesInput.value = String(cur);
+                                    highRiskHolesInput.addEventListener('change', () => { const v = Number(highRiskHolesInput.value); try {
+                                        ai.setHighRiskHoles(v);
+                                    }
+                                    catch (e) { } });
+                                }
+                            }
+                            catch (e) { }
                             if (maxWorkersInput && typeof ai.getMaxConcurrentWorkers === 'function') {
                                 const cur = ai.getMaxConcurrentWorkers();
                                 maxWorkersInput.value = String(cur);
@@ -348,13 +436,150 @@ export default function attachInputSettings(input) {
             catch (e) { }
         }
         catch (e) { }
-        // reset settings button
+        // AI debug panel toggle: wire the #ai-debug visibility to AI settings
         try {
-            const resetBtn = document.getElementById('reset-settings');
+            const aiDebugPanelToggle = document.getElementById('ai-debug-panel-toggle');
+            const aiDebugPanel = document.getElementById('ai-debug');
+            if (aiDebugPanelToggle) {
+                try {
+                    const stored = localStorage.getItem('aiDebugPanelVisible');
+                    if (stored !== null) {
+                        const visible = stored === '1';
+                        aiDebugPanelToggle.checked = visible;
+                        if (aiDebugPanel)
+                            aiDebugPanel.style.display = visible ? '' : 'none';
+                    }
+                }
+                catch (e) { }
+                aiDebugPanelToggle.addEventListener('change', function () {
+                    try {
+                        const visible = !!aiDebugPanelToggle.checked;
+                        if (aiDebugPanel)
+                            aiDebugPanel.style.display = visible ? '' : 'none';
+                        try { if (window.ai && typeof window.ai.setDebugEnabled === 'function') window.ai.setDebugEnabled(visible); }
+                        catch (e) { }
+                        try { localStorage.setItem('aiDebugPanelVisible', visible ? '1' : '0'); }
+                        catch (e) { }
+                    }
+                    catch (e) { }
+                });
+            }
+        }
+        catch (e) { }
+        // Lock monitor wiring: stats, events, controls
+        try {
+            const lockEnabled = document.getElementById('lock-monitor-enabled');
+            const lockThreshold = document.getElementById('lock-rapid-threshold');
+            const lockExportBtn = document.getElementById('lock-export-btn');
+            const lockExportCsvBtn = document.getElementById('lock-export-csv-btn');
+            const lockClearBtn = document.getElementById('lock-clear-btn');
+            const lockStatsEl = document.getElementById('lock-stats');
+            const lockEventsList = document.getElementById('lock-events-list');
+            if (game) {
+                try {
+                    if (lockEnabled && typeof game.setLockMonitorEnabled === 'function') {
+                        // try to reflect current state if possible
+                        try {
+                            lockEnabled.checked = !!(game.monitorLocks !== undefined ? game.monitorLocks : true);
+                        }
+                        catch (e) { }
+                        lockEnabled.addEventListener('change', () => { try {
+                            game.setLockMonitorEnabled(lockEnabled.checked);
+                        }
+                        catch (e) { } });
+                    }
+                    if (lockThreshold && typeof game.getLockStats === 'function') {
+                        const s = game.getLockStats();
+                        if (s && typeof s.rapidLockThresholdMs === 'number')
+                            lockThreshold.value = String(s.rapidLockThresholdMs);
+                        lockThreshold.addEventListener('change', () => { const v = Number(lockThreshold.value); try {
+                            game.setLockRapidThresholdMs(v);
+                        }
+                        catch (e) { } });
+                    }
+                    if (lockExportBtn)
+                        lockExportBtn.addEventListener('click', () => { try {
+                            if (typeof game.exportLockEventsToWindow === 'function')
+                                game.exportLockEventsToWindow();
+                            lockRefresh();
+                        }
+                        catch (e) { } });
+                    if (lockExportCsvBtn)
+                        lockExportCsvBtn.addEventListener('click', () => {
+                            // CSV generation will be handled below via blob fallback
+                            try {
+                                // fallback: create CSV via browser blob using latest events
+                                const ev2 = typeof game.getLockEvents === 'function' ? game.getLockEvents() : [];
+                                if (!ev2 || !ev2.length)
+                                    return;
+                                const header = ['ts', 'type', 'piece', 'beforeFilled', 'afterFilled', 'delta'];
+                                const csvRows = [header.join(',')];
+                                for (const it of ev2) {
+                                    const cells = [it.ts, it.type, it.piece, it.beforeFilled, it.afterFilled, it.delta].map(c => `${String(c).replace(/"/g, '""')}`);
+                                    csvRows.push('"' + cells.join('","') + '"');
+                                }
+                                const csvText = csvRows.join('\n');
+                                const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `lock_events_${Date.now()}.csv`;
+                                document.body.appendChild(a);
+                                a.click();
+                                setTimeout(() => { try {
+                                    URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                }
+                                catch (e) { } }, 2000);
+                            }
+                            catch (e) { }
+                        });
+                    if (lockClearBtn)
+                        lockClearBtn.addEventListener('click', () => { try {
+                            if (typeof game.clearLockEvents === 'function')
+                                game.clearLockEvents();
+                            lockRefresh();
+                        }
+                        catch (e) { } });
+                    function lockRefresh() {
+                        try {
+                            if (!lockStatsEl || !lockEventsList)
+                                return;
+                            const s = typeof game.getLockStats === 'function' ? game.getLockStats() : {};
+                            const ev = typeof game.getLockEvents === 'function' ? game.getLockEvents() : [];
+                            lockStatsEl.textContent = `total=${s.totalLocks || 0}, anomalies=${s.anomalyCount || 0}, last=${s.lastLockTs || 'n/a'}`;
+                            lockEventsList.innerHTML = '';
+                            for (let i = Math.max(0, ev.length - 10); i < ev.length; i++) {
+                                const item = ev[i];
+                                const d = document.createElement('div');
+                                d.className = 'lock-event';
+                                d.style.padding = '4px 0';
+                                d.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+                                try {
+                                    d.textContent = `${new Date(item.ts).toLocaleTimeString()} ${item.type} ${item.piece} before:${item.beforeFilled} after:${item.afterFilled} Δ:${item.delta}`;
+                                }
+                                catch (e) {
+                                    d.textContent = JSON.stringify(item);
+                                }
+                                lockEventsList.appendChild(d);
+                            }
+                        }
+                        catch (e) { }
+                    }
+                    lockRefresh();
+                    setInterval(lockRefresh, 1000);
+                }
+                catch (e) { }
+            }
+        }
+        catch (e) { }
+        // reset settings button (index.html uses reset-settings-2)
+        try {
+            const resetBtn = document.getElementById('reset-settings-2');
             if (resetBtn) {
                 resetBtn.addEventListener('click', () => {
-                    createSwatches('palette-outer-panel', outerColors, '--frame-bg', 5);
-                    createSwatches('palette-inner-panel', innerColors, '--inner-bg', 5);
+                    createSwatches('palette-outer-panel', outerColors, '--frame-bg', 0);
+                    createSwatches('palette-inner-panel', innerColors, '--inner-bg', 0);
                     try {
                         const nextRange = document.getElementById('next-count-range');
                         const nextNum = document.getElementById('next-count-number');
