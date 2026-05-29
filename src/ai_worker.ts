@@ -431,6 +431,40 @@ declare const self: DedicatedWorkerGlobalScope;
     const topKToUse = topKLocalKey;
     const topPlacements: Placement[] = allocTopPlacements(topKToUse);
     let topCount = 0;
+    // Min-heap helpers (heap root = smallest score) to keep top-K with O(log K)
+    function heapSiftUp(heap: Placement[], idx: number) {
+      while (idx > 0) {
+        const parent = (idx - 1) >> 1;
+        if (heap[parent].score <= heap[idx].score) break;
+        const t = heap[parent];
+        heap[parent] = heap[idx];
+        heap[idx] = t;
+        idx = parent;
+      }
+    }
+    function heapSiftDown(heap: Placement[], idx: number, size: number) {
+      while (true) {
+        const left = idx * 2 + 1;
+        const right = left + 1;
+        let smallest = idx;
+        if (left < size && heap[left].score < heap[smallest].score) smallest = left;
+        if (right < size && heap[right].score < heap[smallest].score) smallest = right;
+        if (smallest === idx) break;
+        const t = heap[smallest];
+        heap[smallest] = heap[idx];
+        heap[idx] = t;
+        idx = smallest;
+      }
+    }
+    function heapPush(item: Placement) {
+      topPlacements[topCount] = item;
+      heapSiftUp(topPlacements, topCount);
+      topCount++;
+    }
+    function heapReplaceRoot(item: Placement) {
+      topPlacements[0] = item;
+      heapSiftDown(topPlacements, 0, topCount);
+    }
     let iterCount = 0;
     let lastYieldTime = 0;
     let placementsConsidered = 0;
@@ -853,17 +887,10 @@ declare const self: DedicatedWorkerGlobalScope;
             cleared: cleared || 0,
             score,
           } as Placement;
-          topPlacements[topCount++] = candidate;
+          heapPush(candidate);
         } else {
-          let minIdx = 0;
-          let minVal = topPlacements[0].score;
-          for (let i = 1; i < topCount; i++) {
-            if (topPlacements[i].score < minVal) {
-              minVal = topPlacements[i].score;
-              minIdx = i;
-            }
-          }
-          if (score > minVal) {
+          // min-heap root is smallest score; replace if current candidate is better
+          if (score > topPlacements[0].score) {
             if (!finalBoard)
               finalBoard = anyCleared
                 ? buildFinalBoardFromTmpColBits(n)
@@ -875,7 +902,7 @@ declare const self: DedicatedWorkerGlobalScope;
               cleared: cleared || 0,
               score,
             } as Placement;
-            topPlacements[minIdx] = candidate;
+            heapReplaceRoot(candidate);
           }
         }
         // restore scratch rows
