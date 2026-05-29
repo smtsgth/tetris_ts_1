@@ -1,24 +1,24 @@
-import { describe, it, expect } from 'vitest';
-import { getKickOffsets } from '../tetromino';
-import Game from '../game';
-import { Piece } from '../tetromino';
-describe('SRS kick tables and rotation behavior', () => {
-    it('I-piece has 5 kick offsets for 0->1', () => {
-        const kicks = getKickOffsets('I', 0, 1);
+import { describe, it, expect } from "vitest";
+import { getKickOffsets } from "../tetromino";
+import Game from "../game";
+import { Piece } from "../tetromino";
+describe("SRS kick tables and rotation behavior", () => {
+    it("I-piece has 5 kick offsets for 0->1", () => {
+        const kicks = getKickOffsets("I", 0, 1);
         expect(kicks.length).toBe(5);
         expect(kicks[0]).toEqual([0, 0]);
         expect(kicks[1]).toEqual([-2, 0]);
     });
-    it('JLSTZ pieces have 5 kick offsets for 0->1', () => {
-        const kicks = getKickOffsets('T', 0, 1);
+    it("JLSTZ pieces have 5 kick offsets for 0->1", () => {
+        const kicks = getKickOffsets("T", 0, 1);
         expect(kicks.length).toBe(5);
         expect(kicks[0]).toEqual([0, 0]);
         expect(kicks[1]).toEqual([-1, 0]);
     });
-    it('game rotation performs I-piece right-side kick when starting x=-1', () => {
+    it("game rotation performs I-piece right-side kick when starting x=-1", () => {
         const g = new Game();
         // place an I piece starting at x=-1; rotation should succeed and move to x=0 using kick [1,0]
-        g.current = new Piece('I');
+        g.current = new Piece("I");
         g.current.x = -1;
         g.current.y = 0;
         g.current.rotation = 0;

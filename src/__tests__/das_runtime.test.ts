@@ -1,23 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import Input from '../input';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import Input from "../input";
 
-describe('DAS/ARR behavior', () => {
+describe("DAS/ARR behavior", () => {
   let mockGame: any;
   beforeEach(() => {
     vi.useFakeTimers();
     mockGame = {
       moves: 0,
-      move: (dx: number, dy = 0) => { mockGame.moves++; return true; }
+      move: (dx: number, dy = 0) => {
+        mockGame.moves++;
+        return true;
+      },
     };
   });
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('initial press moves once and then repeats after DAS+ARR', () => {
+  it("initial press moves once and then repeats after DAS+ARR", () => {
     const input = new Input(mockGame as any);
     // simulate keydown ArrowLeft by calling handler directly (no DOM in this test env)
-    const down = { key: 'ArrowLeft', repeat: false } as KeyboardEvent;
+    const down = { key: "ArrowLeft", repeat: false } as KeyboardEvent;
     (input as any).onKeyDown(down);
     expect(mockGame.moves).toBe(1);
 
@@ -32,7 +35,7 @@ describe('DAS/ARR behavior', () => {
     expect(mockGame.moves).toBeGreaterThan(1);
 
     // simulate keyup to stop
-    const up = { key: 'ArrowLeft' } as KeyboardEvent;
+    const up = { key: "ArrowLeft" } as KeyboardEvent;
     (input as any).onKeyUp(up);
     // advance timers and ensure no more moves happen
     const before = mockGame.moves;

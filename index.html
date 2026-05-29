@@ -1,435 +1,1209 @@
 <!doctype html>
 <html lang="ja">
-<head>
-  <script>
-    (function(){
-      try {
-        window.__copilot_logs = window.__copilot_logs || { errors: [], rejections: [], console: [] };
-        window.addEventListener('error', function(ev){
-          try {
-            window.__copilot_logs.errors.push({
-              message: ev && ev.message,
-              filename: ev && ev.filename,
-              lineno: ev && ev.lineno,
-              colno: ev && ev.colno,
-              stack: ev && ev.error && ev.error.stack || (ev && ev.stack) || null,
-              time: Date.now()
-            });
-          } catch(e) {}
-        }, true);
-        window.addEventListener('unhandledrejection', function(ev){
-          try { window.__copilot_logs.rejections.push({ reason: ev && (ev.reason && (ev.reason.stack || String(ev.reason))), time: Date.now() }); } catch(e) {}
-        }, true);
-        ['error','warn','log','info'].forEach(function(level){
-          var orig = console[level];
-          console[level] = function(){
-            try {
-              var args = Array.prototype.slice.call(arguments).map(function(a){
-                try { return (typeof a === 'object') ? JSON.stringify(a) : String(a); } catch(e){ return String(a); }
-              });
-              window.__copilot_logs.console.push({ level: level, args: args, time: Date.now() });
-            } catch(e) {}
-            try { orig.apply(console, arguments); } catch(e) {}
+  <head>
+    <script>
+      (function () {
+        try {
+          window.__copilot_logs = window.__copilot_logs || {
+            errors: [],
+            rejections: [],
+            console: [],
           };
-        });
-      } catch(e){}
-    })();
-  </script>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tetris TS</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div id="app">
-    <div id="game-area">
-        <!-- left-most column: NEXT + panels -->
-          <div id="left-controls" role="region" aria-label="Settings and palettes">
-          
-          </div>
-
-      <!-- left column: Hold slots and Info -->
-      <div id="left-hud" role="region" aria-label="Game controls">
-        <div id="holds">
-          <div id="hold1" class="hold-box"><div class="label">HOLD 1 <kbd>C</kbd></div><canvas id="hold-canvas-1" width="120" height="120" aria-label="Hold slot 1"></canvas></div>
-          <div id="hold2" class="hold-box"><div class="label">HOLD 2 <kbd>V</kbd></div><canvas id="hold-canvas-2" width="120" height="120" aria-label="Hold slot 2"></canvas></div>
-        </div>
-        <div id="info">
-          <div>Score: <span id="score" aria-live="polite" aria-atomic="true">0</span></div>
-          <div>Lines: <span id="lines">0</span></div>
-          <div>Level: <span id="level">0</span></div>
-          <div class="b2b-row"><span id="b2b-icon" class="b2b-icon off" role="status" aria-live="polite">B2B</span> <span>B2B: <span id="b2b">OFF</span></span></div>
-          <div>Combo: <span id="combo" class="combo">0</span></div>
-          <div id="log-container"><div class="label">Log</div><ul id="log" role="log" aria-live="polite"></ul></div>
-        </div>
-        <div id="controls">
-          <div class="controls-line"><span><kbd>←</kbd> <kbd>→</kbd> 移動</span></div>
-          <div class="controls-line"><span><kbd>X</kbd> / <kbd>↑</kbd> 右回転　 <kbd>Z</kbd> 左回転</span></div>
-          <div class="controls-line"><span><kbd>↓</kbd> ソフト　 <kbd>Space</kbd> ハード　 <kbd>C</kbd> Hold1　 <kbd>V</kbd> Hold2　 <kbd>Esc</kbd> 中断/再開　 <kbd>R</kbd> 再起動</span></div>
-        </div>
-      </div>
-
-      <!-- board (center) -->
-      <div id="board-wrap">
-        <canvas id="board" width="300" height="600" tabindex="0" role="application" aria-label="Tetris game board"></canvas>
-        <div id="overlay"><div id="overlay-msg" class="overlay-msg"></div></div>
-        <div id="game-over" class="game-over" aria-hidden="true">
-          <div class="game-over-inner">
-            <div id="game-over-title">GAME OVER</div>
-            <div id="game-over-stats" class="game-over-stats">
-              <div>Score: <span id="go-score">0</span></div>
-              <div>Lines: <span id="go-lines">0</span></div>
-            </div>
-            <button id="restart-btn" class="restart-btn">Restart</button>
-          </div>
-        </div>
-        <div id="pause-overlay" class="game-over" aria-hidden="true">
-          <div class="game-over-inner">
-            <div id="pause-title">PAUSED</div>
-            <div class="game-over-stats" style="display:flex;gap:14px;justify-content:center">
-              <button id="pause-resume-btn" class="pause-btn pause-primary">Resume</button>
-              <button id="pause-restart-btn" class="pause-btn pause-secondary">Restart</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- HUD: Next + panels (placed right) -->
-      <div id="hud">
-        <div class="hud-top">
-          <div id="next"><div class="label">NEXT</div><canvas id="next-canvas" width="320" height="600"></canvas></div>
-          <div id="right-controls" role="region" aria-label="Right controls">
-          <div class="right-col" id="rc-left">
-            <div id="input-settings" role="group" aria-labelledby="input-settings-label">
-              <div class="label" id="input-settings-label">入力設定</div>
-              <div class="setting-row">
-                <label for="das-range">DAS (ms)</label>
-                <input id="das-range" type="range" min="0" max="500" step="5" aria-label="DAS スライダー" role="slider" aria-valuemin="0" aria-valuemax="500" aria-valuenow="5" aria-describedby="das-number">
-                <input id="das-number" type="number" min="0" max="500" step="5" aria-label="DAS ミリ秒">
-              </div>
-              <div class="setting-row">
-                <label for="arr-range">ARR (ms)</label>
-                <input id="arr-range" type="range" min="0" max="200" step="5" aria-label="ARR スライダー" role="slider" aria-valuemin="0" aria-valuemax="200" aria-valuenow="25" aria-describedby="arr-number">
-                <input id="arr-number" type="number" min="0" max="200" step="5" aria-label="ARR ミリ秒">
-              </div>
-              <div class="setting-row">
-                <label for="preset-select">Preset</label>
-                <select id="preset-select" aria-label="設定プリセット">
-                  <option value="default">Default</option>
-                  <option value="fast">Fast</option>
-                  <option value="competitive">Competitive</option>
-                  <option value="marathon">Marathon</option>
-                  <option value="slow">Slow</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              <div class="setting-row">
-                <label for="soft-range">Soft Drop (ms)</label>
-                <input id="soft-range" type="range" min="1" max="30" step="1" aria-label="Soft Drop スライダー" role="slider" aria-valuemin="1" aria-valuemax="30" aria-valuenow="15" aria-describedby="soft-number">
-                <input id="soft-number" type="number" min="1" max="30" step="1" aria-label="Soft Drop 間隔 ミリ秒">
-              </div>
-              <div class="setting-row">
-                <label for="next-count-range">Next Count</label>
-                <input id="next-count-range" type="range" min="1" max="6" step="1" aria-label="Next 表示数スライダー" role="slider" aria-valuemin="1" aria-valuemax="6" aria-valuenow="6">
-                <input id="next-count-number" type="number" min="1" max="6" step="1" aria-label="Next 表示数">
-              </div>
-              <div class="setting-actions">
-                <button id="reset-settings-2">設定初期化</button>
-              </div>
-            </div>
-            <div id="palette-panel" aria-label="Color palettes" style="margin-top:8px">
-              <div class="label">配色設定</div>
-              <div class="palette-section">
-                <div class="label">HUD</div>
-                <div id="palette-outer-panel" class="palette-row" aria-label="HUD配色"></div>
-              </div>
-              <div class="palette-section">
-                <div class="label">盤面</div>
-                <div id="palette-inner-panel" class="palette-row" aria-label="枠内配色"></div>
-              </div>
-            </div>
-          </div>
-          <div class="right-col" id="rc-center">
-            <div id="ai-panel" aria-label="AI settings" style="margin-top:8px">
-              <div class="label">AI 設定</div>
-              <div class="setting-row"><label for="ai-toggle">AI</label><input id="ai-toggle" type="checkbox" aria-label="AI 自動化"></div>
-              <div class="setting-row"><label for="ai-debug-panel-toggle">AI デバッグ表示</label><input id="ai-debug-panel-toggle" type="checkbox" aria-label="AI デバッグパネル表示"></div>
-              <div class="setting-row"><label for="ai-lookahead-range">Lookahead</label>
-                <input id="ai-lookahead-range" type="range" min="1" max="6" step="1" aria-label="AI 先読みスライダー" value="1" oninput="document.getElementById('ai-lookahead-number').value=this.value">
-                <input id="ai-lookahead-number" type="number" min="1" max="6" step="1" aria-label="AI 先読み数" value="1" oninput="document.getElementById('ai-lookahead-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="ai-beamwidth-range">Beam Width</label>
-                <input id="ai-beamwidth-range" type="range" min="1" max="8" step="1" aria-label="AI ビーム幅" value="1" oninput="document.getElementById('ai-beamwidth-number').value=this.value">
-                <input id="ai-beamwidth-number" type="number" min="1" max="8" step="1" aria-label="AI ビーム幅数値" value="1" oninput="document.getElementById('ai-beamwidth-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="ai-pernode-range">Per-Node Limit</label>
-                <input id="ai-pernode-range" type="range" min="1" max="8" step="1" aria-label="AI ノード当たり制限" value="1" oninput="document.getElementById('ai-pernode-number').value=this.value">
-                <input id="ai-pernode-number" type="number" min="1" max="8" step="1" aria-label="AI ノード当たり数値" value="1" oninput="document.getElementById('ai-pernode-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="ai-topk-range">Top K</label>
-                <input id="ai-topk-range" type="range" min="1" max="8" step="1" aria-label="AI Top K" value="1" oninput="document.getElementById('ai-topk-number').value=this.value">
-                <input id="ai-topk-number" type="number" min="1" max="8" step="1" aria-label="AI Top K 数値" value="1" oninput="document.getElementById('ai-topk-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="plan-timeout-range">Plan Timeout (ms)</label>
-                <input id="plan-timeout-range" type="range" min="0" max="60000" step="100" aria-label="Plan Timeout スライダー" value="500" oninput="document.getElementById('plan-timeout-ms').value=this.value">
-                <input id="plan-timeout-ms" type="number" min="0" max="60000" step="100" aria-label="Plan Timeout (ms)" value="500" oninput="document.getElementById('plan-timeout-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="early-fallback-range">Early Fallback (ms)</label>
-                <input id="early-fallback-range" type="range" min="0" max="10000" step="10" aria-label="Early Fallback スライダー" value="100" oninput="document.getElementById('early-fallback-ms').value=this.value">
-                <input id="early-fallback-ms" type="number" min="0" max="10000" step="10" aria-label="Early Fallback (ms)" value="100" oninput="document.getElementById('early-fallback-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="repeat-plan-range">Repeat Plan Threshold</label>
-                <input id="repeat-plan-range" type="range" min="0" max="100" step="1" aria-label="Repeat Plan スライダー" value="3" oninput="document.getElementById('repeat-plan-threshold').value=this.value">
-                <input id="repeat-plan-threshold" type="number" min="0" max="100" step="1" aria-label="Repeat Plan Threshold" value="3" oninput="document.getElementById('repeat-plan-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="worker-overwrite-range">Worker Overwrite Score Δ</label>
-                <input id="worker-overwrite-range" type="range" min="-10000" max="10000" step="1" aria-label="Worker Overwrite スライダー" value="2" oninput="document.getElementById('worker-overwrite-delta').value=this.value">
-                <input id="worker-overwrite-delta" type="number" min="-10000" max="10000" step="1" aria-label="Worker Overwrite Score Delta" value="2" oninput="document.getElementById('worker-overwrite-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="worker-min-profile-range">Worker Min Profile (ms)</label>
-                <input id="worker-min-profile-range" type="range" min="0" max="10000" step="1" aria-label="Worker Min Profile スライダー" value="60" oninput="document.getElementById('worker-min-profile-ms').value=this.value">
-                <input id="worker-min-profile-ms" type="number" min="0" max="10000" step="1" aria-label="Worker Min Profile (ms)" value="60" oninput="document.getElementById('worker-min-profile-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="hold-improvement-range">Hold Improvement Δ</label>
-                <input id="hold-improvement-range" type="range" min="0" max="1000" step="1" aria-label="Hold Improvement スライダー" value="8" oninput="document.getElementById('hold-improvement-threshold').value=this.value">
-                <input id="hold-improvement-threshold" type="number" min="0" max="1000" step="1" aria-label="Hold Improvement Threshold" value="8" oninput="document.getElementById('hold-improvement-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="hold-debounce-range">Hold Debounce (ms)</label>
-                <input id="hold-debounce-range" type="range" min="0" max="5000" step="10" aria-label="Hold Debounce スライダー" value="700" oninput="document.getElementById('hold-debounce-ms').value=this.value">
-                <input id="hold-debounce-ms" type="number" min="0" max="5000" step="10" aria-label="Hold Debounce ms" value="700" oninput="document.getElementById('hold-debounce-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="high-risk-max-range">High Risk Max Height</label>
-                <input id="high-risk-max-range" type="range" min="1" max="40" step="1" aria-label="High Risk Max Height スライダー" value="6" oninput="document.getElementById('high-risk-max-height').value=this.value">
-                <input id="high-risk-max-height" type="number" min="1" max="40" step="1" aria-label="High Risk Max Height" value="6" oninput="document.getElementById('high-risk-max-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="high-risk-holes-range">High Risk Holes</label>
-                <input id="high-risk-holes-range" type="range" min="0" max="40" step="1" aria-label="High Risk Holes スライダー" value="6" oninput="document.getElementById('high-risk-holes').value=this.value">
-                <input id="high-risk-holes" type="number" min="0" max="40" step="1" aria-label="High Risk Holes" value="6" oninput="document.getElementById('high-risk-holes-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="max-concurrent-workers-range">Max Concurrent Workers</label>
-                <input id="max-concurrent-workers-range" type="range" min="1" max="64" step="1" aria-label="Max Concurrent Workers スライダー" value="8" oninput="document.getElementById('max-concurrent-workers').value=this.value">
-                <input id="max-concurrent-workers" type="number" min="1" max="64" step="1" aria-label="Max Concurrent Workers" value="8" oninput="document.getElementById('max-concurrent-workers-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="worker-pool-size-range">Worker Pool Size</label>
-                <input id="worker-pool-size-range" type="range" min="1" max="16" step="1" aria-label="Worker Pool Size" value="3" oninput="document.getElementById('worker-pool-size-number').value=this.value">
-                <input id="worker-pool-size-number" type="number" min="1" max="16" step="1" aria-label="Worker Pool Size 数値" value="3" oninput="document.getElementById('worker-pool-size-range').value=this.value">
-              </div>
-              <div class="setting-row"><label for="ai-disable-input">AI中入力ロック</label><input id="ai-disable-input" type="checkbox" checked></div>
-              <div class="setting-row"><label for="allow-hold1">Allow Hold1</label><input id="allow-hold1" type="checkbox" checked></div>
-              <div class="setting-row"><label for="allow-hold2">Allow Hold2</label><input id="allow-hold2" type="checkbox" checked></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="a11y-notify" aria-live="polite" class="sr-only"></div>
-    </div>
-  </div>
-
-  <script type="module" src="dist/main.js"></script>
-  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
-  <!-- Debug helper: expose AI logs/profiles on the page for runtime inspection -->
-  <div id="ai-debug" style="position:fixed;right:12px;bottom:12px;background:#111;color:#fff;padding:8px;border-radius:6px;z-index:10000;font-size:12px">
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-      <button id="dump-ai-logs" type="button">Export AI -> window</button>
-      <button id="show-ai-logs" type="button">Show AI logs</button>
-      <button id="force-dump-ai" type="button">Force Dump AI JSON</button>
-      <button id="run-hold-sweep" type="button">Run Hold Sweep</button>
-      <button id="auto-tune-hold" type="button">Auto-tune Hold</button>
-    </div>
-    <pre id="ai-debug-output" style="max-height:240px;overflow:auto;white-space:pre-wrap;margin:0;padding:6px;background:#000;border-radius:4px"></pre>
-  </div>
-  <script>
-    (function(){
-      try {
-        const dump = document.getElementById('dump-ai-logs');
-        const show = document.getElementById('show-ai-logs');
-        const out = document.getElementById('ai-debug-output');
-        if (dump) dump.addEventListener('click', function(){
-          try {
-            // try direct window.ai first
-            if (window.ai) {
-              const a = window.ai;
-              if (typeof a.exportProfilesToWindow === 'function') try { a.exportProfilesToWindow(); } catch(e){}
-              if (typeof a.getLogs === 'function') try { window.aiLogs = a.getLogs(); } catch(e){}
-              if (typeof a.getAllProfileEvents === 'function') try { window.workerProfiles = a.getAllProfileEvents(); } catch(e){}
-            }
-            // scan window for AI-like objects if nothing found
-            if (!window.aiLogs || !window.workerProfiles) {
+          window.addEventListener(
+            "error",
+            function (ev) {
               try {
-                for (const k of Object.keys(window)) {
+                window.__copilot_logs.errors.push({
+                  message: ev && ev.message,
+                  filename: ev && ev.filename,
+                  lineno: ev && ev.lineno,
+                  colno: ev && ev.colno,
+                  stack:
+                    (ev && ev.error && ev.error.stack) ||
+                    (ev && ev.stack) ||
+                    null,
+                  time: Date.now(),
+                });
+              } catch (e) {}
+            },
+            true,
+          );
+          window.addEventListener(
+            "unhandledrejection",
+            function (ev) {
+              try {
+                window.__copilot_logs.rejections.push({
+                  reason:
+                    ev && ev.reason && (ev.reason.stack || String(ev.reason)),
+                  time: Date.now(),
+                });
+              } catch (e) {}
+            },
+            true,
+          );
+          ["error", "warn", "log", "info"].forEach(function (level) {
+            var orig = console[level];
+            console[level] = function () {
+              try {
+                var args = Array.prototype.slice
+                  .call(arguments)
+                  .map(function (a) {
+                    try {
+                      return typeof a === "object"
+                        ? JSON.stringify(a)
+                        : String(a);
+                    } catch (e) {
+                      return String(a);
+                    }
+                  });
+                window.__copilot_logs.console.push({
+                  level: level,
+                  args: args,
+                  time: Date.now(),
+                });
+              } catch (e) {}
+              try {
+                orig.apply(console, arguments);
+              } catch (e) {}
+            };
+          });
+        } catch (e) {}
+      })();
+    </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tetris TS</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="shortcut icon" href="favicon.ico" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="game-area">
+        <!-- left-most column: NEXT + panels -->
+        <div
+          id="left-controls"
+          role="region"
+          aria-label="Settings and palettes"
+        ></div>
+
+        <!-- left column: Hold slots and Info -->
+        <div id="left-hud" role="region" aria-label="Game controls">
+          <div id="holds">
+            <div id="hold1" class="hold-box">
+              <div class="label">HOLD 1 <kbd>C</kbd></div>
+              <canvas
+                id="hold-canvas-1"
+                width="120"
+                height="120"
+                aria-label="Hold slot 1"
+              ></canvas>
+            </div>
+            <div id="hold2" class="hold-box">
+              <div class="label">HOLD 2 <kbd>V</kbd></div>
+              <canvas
+                id="hold-canvas-2"
+                width="120"
+                height="120"
+                aria-label="Hold slot 2"
+              ></canvas>
+            </div>
+          </div>
+          <div id="info">
+            <div>
+              Score:
+              <span id="score" aria-live="polite" aria-atomic="true">0</span>
+            </div>
+            <div>Lines: <span id="lines">0</span></div>
+            <div>Level: <span id="level">0</span></div>
+            <div class="b2b-row">
+              <span
+                id="b2b-icon"
+                class="b2b-icon off"
+                role="status"
+                aria-live="polite"
+                >B2B</span
+              >
+              <span>B2B: <span id="b2b">OFF</span></span>
+            </div>
+            <div>Combo: <span id="combo" class="combo">0</span></div>
+            <div id="log-container">
+              <div class="label">Log</div>
+              <ul id="log" role="log" aria-live="polite"></ul>
+            </div>
+          </div>
+          <div id="controls">
+            <div class="controls-line">
+              <span><kbd>←</kbd> <kbd>→</kbd> 移動</span>
+            </div>
+            <div class="controls-line">
+              <span
+                ><kbd>X</kbd> / <kbd>↑</kbd> 右回転　 <kbd>Z</kbd> 左回転</span
+              >
+            </div>
+            <div class="controls-line">
+              <span
+                ><kbd>↓</kbd> ソフト　 <kbd>Space</kbd> ハード　
+                <kbd>C</kbd> Hold1　 <kbd>V</kbd> Hold2　
+                <kbd>Esc</kbd> 中断/再開　 <kbd>R</kbd> 再起動</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- board (center) -->
+        <div id="board-wrap">
+          <canvas
+            id="board"
+            width="300"
+            height="600"
+            tabindex="0"
+            role="application"
+            aria-label="Tetris game board"
+          ></canvas>
+          <div id="overlay">
+            <div id="overlay-msg" class="overlay-msg"></div>
+          </div>
+          <div id="game-over" class="game-over" aria-hidden="true">
+            <div class="game-over-inner">
+              <div id="game-over-title">GAME OVER</div>
+              <div id="game-over-stats" class="game-over-stats">
+                <div>Score: <span id="go-score">0</span></div>
+                <div>Lines: <span id="go-lines">0</span></div>
+              </div>
+              <button id="restart-btn" class="restart-btn">Restart</button>
+            </div>
+          </div>
+          <div id="pause-overlay" class="game-over" aria-hidden="true">
+            <div class="game-over-inner">
+              <div id="pause-title">PAUSED</div>
+              <div
+                class="game-over-stats"
+                style="display: flex; gap: 14px; justify-content: center"
+              >
+                <button id="pause-resume-btn" class="pause-btn pause-primary">
+                  Resume
+                </button>
+                <button
+                  id="pause-restart-btn"
+                  class="pause-btn pause-secondary"
+                >
+                  Restart
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HUD: Next + panels (placed right) -->
+        <div id="hud">
+          <div class="hud-top">
+            <div id="next">
+              <div class="label">NEXT</div>
+              <canvas id="next-canvas" width="320" height="600"></canvas>
+            </div>
+            <div id="right-controls" role="region" aria-label="Right controls">
+              <div class="right-col" id="rc-left">
+                <div
+                  id="input-settings"
+                  role="group"
+                  aria-labelledby="input-settings-label"
+                >
+                  <div class="label" id="input-settings-label">入力設定</div>
+                  <div class="setting-row">
+                    <label for="das-range">DAS (ms)</label>
+                    <input
+                      id="das-range"
+                      type="range"
+                      min="0"
+                      max="500"
+                      step="5"
+                      aria-label="DAS スライダー"
+                      role="slider"
+                      aria-valuemin="0"
+                      aria-valuemax="500"
+                      aria-valuenow="5"
+                      aria-describedby="das-number"
+                    />
+                    <input
+                      id="das-number"
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="5"
+                      aria-label="DAS ミリ秒"
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="arr-range">ARR (ms)</label>
+                    <input
+                      id="arr-range"
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="5"
+                      aria-label="ARR スライダー"
+                      role="slider"
+                      aria-valuemin="0"
+                      aria-valuemax="200"
+                      aria-valuenow="25"
+                      aria-describedby="arr-number"
+                    />
+                    <input
+                      id="arr-number"
+                      type="number"
+                      min="0"
+                      max="200"
+                      step="5"
+                      aria-label="ARR ミリ秒"
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="preset-select">Preset</label>
+                    <select id="preset-select" aria-label="設定プリセット">
+                      <option value="default">Default</option>
+                      <option value="fast">Fast</option>
+                      <option value="competitive">Competitive</option>
+                      <option value="marathon">Marathon</option>
+                      <option value="slow">Slow</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <label for="soft-range">Soft Drop (ms)</label>
+                    <input
+                      id="soft-range"
+                      type="range"
+                      min="1"
+                      max="30"
+                      step="1"
+                      aria-label="Soft Drop スライダー"
+                      role="slider"
+                      aria-valuemin="1"
+                      aria-valuemax="30"
+                      aria-valuenow="15"
+                      aria-describedby="soft-number"
+                    />
+                    <input
+                      id="soft-number"
+                      type="number"
+                      min="1"
+                      max="30"
+                      step="1"
+                      aria-label="Soft Drop 間隔 ミリ秒"
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="next-count-range">Next Count</label>
+                    <input
+                      id="next-count-range"
+                      type="range"
+                      min="1"
+                      max="6"
+                      step="1"
+                      aria-label="Next 表示数スライダー"
+                      role="slider"
+                      aria-valuemin="1"
+                      aria-valuemax="6"
+                      aria-valuenow="6"
+                    />
+                    <input
+                      id="next-count-number"
+                      type="number"
+                      min="1"
+                      max="6"
+                      step="1"
+                      aria-label="Next 表示数"
+                    />
+                  </div>
+                  <div class="setting-actions">
+                    <button id="reset-settings-2">設定初期化</button>
+                  </div>
+                </div>
+                <div
+                  id="palette-panel"
+                  aria-label="Color palettes"
+                  style="margin-top: 8px"
+                >
+                  <div class="label">配色設定</div>
+                  <div class="palette-section">
+                    <div class="label">HUD</div>
+                    <div
+                      id="palette-outer-panel"
+                      class="palette-row"
+                      aria-label="HUD配色"
+                    ></div>
+                  </div>
+                  <div class="palette-section">
+                    <div class="label">盤面</div>
+                    <div
+                      id="palette-inner-panel"
+                      class="palette-row"
+                      aria-label="枠内配色"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div class="right-col" id="rc-center">
+                <div
+                  id="ai-panel"
+                  aria-label="AI settings"
+                  style="margin-top: 8px"
+                >
+                  <div class="label">AI 設定</div>
+                  <div class="setting-row">
+                    <label for="ai-toggle">AI</label
+                    ><input
+                      id="ai-toggle"
+                      type="checkbox"
+                      aria-label="AI 自動化"
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-debug-panel-toggle">AI デバッグ表示</label
+                    ><input
+                      id="ai-debug-panel-toggle"
+                      type="checkbox"
+                      aria-label="AI デバッグパネル表示"
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-lookahead-range">Lookahead</label>
+                    <input
+                      id="ai-lookahead-range"
+                      type="range"
+                      min="1"
+                      max="6"
+                      step="1"
+                      aria-label="AI 先読みスライダー"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-lookahead-number').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="ai-lookahead-number"
+                      type="number"
+                      min="1"
+                      max="6"
+                      step="1"
+                      aria-label="AI 先読み数"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-lookahead-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-beamwidth-range">Beam Width</label>
+                    <input
+                      id="ai-beamwidth-range"
+                      type="range"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI ビーム幅"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-beamwidth-number').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="ai-beamwidth-number"
+                      type="number"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI ビーム幅数値"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-beamwidth-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-pernode-range">Per-Node Limit</label>
+                    <input
+                      id="ai-pernode-range"
+                      type="range"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI ノード当たり制限"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-pernode-number').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="ai-pernode-number"
+                      type="number"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI ノード当たり数値"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-pernode-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-topk-range">Top K</label>
+                    <input
+                      id="ai-topk-range"
+                      type="range"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI Top K"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-topk-number').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="ai-topk-number"
+                      type="number"
+                      min="1"
+                      max="8"
+                      step="1"
+                      aria-label="AI Top K 数値"
+                      value="1"
+                      oninput="
+                        document.getElementById('ai-topk-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="plan-timeout-range">Plan Timeout (ms)</label>
+                    <input
+                      id="plan-timeout-range"
+                      type="range"
+                      min="0"
+                      max="60000"
+                      step="100"
+                      aria-label="Plan Timeout スライダー"
+                      value="500"
+                      oninput="
+                        document.getElementById('plan-timeout-ms').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="plan-timeout-ms"
+                      type="number"
+                      min="0"
+                      max="60000"
+                      step="100"
+                      aria-label="Plan Timeout (ms)"
+                      value="500"
+                      oninput="
+                        document.getElementById('plan-timeout-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="early-fallback-range"
+                      >Early Fallback (ms)</label
+                    >
+                    <input
+                      id="early-fallback-range"
+                      type="range"
+                      min="0"
+                      max="10000"
+                      step="10"
+                      aria-label="Early Fallback スライダー"
+                      value="100"
+                      oninput="
+                        document.getElementById('early-fallback-ms').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="early-fallback-ms"
+                      type="number"
+                      min="0"
+                      max="10000"
+                      step="10"
+                      aria-label="Early Fallback (ms)"
+                      value="100"
+                      oninput="
+                        document.getElementById('early-fallback-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="repeat-plan-range">Repeat Plan Threshold</label>
+                    <input
+                      id="repeat-plan-range"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      aria-label="Repeat Plan スライダー"
+                      value="3"
+                      oninput="
+                        document.getElementById('repeat-plan-threshold').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="repeat-plan-threshold"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      aria-label="Repeat Plan Threshold"
+                      value="3"
+                      oninput="
+                        document.getElementById('repeat-plan-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="worker-overwrite-range"
+                      >Worker Overwrite Score Δ</label
+                    >
+                    <input
+                      id="worker-overwrite-range"
+                      type="range"
+                      min="-10000"
+                      max="10000"
+                      step="1"
+                      aria-label="Worker Overwrite スライダー"
+                      value="2"
+                      oninput="
+                        document.getElementById(
+                          'worker-overwrite-delta',
+                        ).value = this.value
+                      "
+                    />
+                    <input
+                      id="worker-overwrite-delta"
+                      type="number"
+                      min="-10000"
+                      max="10000"
+                      step="1"
+                      aria-label="Worker Overwrite Score Delta"
+                      value="2"
+                      oninput="
+                        document.getElementById(
+                          'worker-overwrite-range',
+                        ).value = this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="worker-min-profile-range"
+                      >Worker Min Profile (ms)</label
+                    >
+                    <input
+                      id="worker-min-profile-range"
+                      type="range"
+                      min="0"
+                      max="10000"
+                      step="1"
+                      aria-label="Worker Min Profile スライダー"
+                      value="60"
+                      oninput="
+                        document.getElementById('worker-min-profile-ms').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="worker-min-profile-ms"
+                      type="number"
+                      min="0"
+                      max="10000"
+                      step="1"
+                      aria-label="Worker Min Profile (ms)"
+                      value="60"
+                      oninput="
+                        document.getElementById(
+                          'worker-min-profile-range',
+                        ).value = this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="hold-improvement-range"
+                      >Hold Improvement Δ</label
+                    >
+                    <input
+                      id="hold-improvement-range"
+                      type="range"
+                      min="0"
+                      max="1000"
+                      step="1"
+                      aria-label="Hold Improvement スライダー"
+                      value="8"
+                      oninput="
+                        document.getElementById(
+                          'hold-improvement-threshold',
+                        ).value = this.value
+                      "
+                    />
+                    <input
+                      id="hold-improvement-threshold"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      step="1"
+                      aria-label="Hold Improvement Threshold"
+                      value="8"
+                      oninput="
+                        document.getElementById(
+                          'hold-improvement-range',
+                        ).value = this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="hold-debounce-range">Hold Debounce (ms)</label>
+                    <input
+                      id="hold-debounce-range"
+                      type="range"
+                      min="0"
+                      max="5000"
+                      step="10"
+                      aria-label="Hold Debounce スライダー"
+                      value="700"
+                      oninput="
+                        document.getElementById('hold-debounce-ms').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="hold-debounce-ms"
+                      type="number"
+                      min="0"
+                      max="5000"
+                      step="10"
+                      aria-label="Hold Debounce ms"
+                      value="700"
+                      oninput="
+                        document.getElementById('hold-debounce-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="high-risk-max-range"
+                      >High Risk Max Height</label
+                    >
+                    <input
+                      id="high-risk-max-range"
+                      type="range"
+                      min="1"
+                      max="40"
+                      step="1"
+                      aria-label="High Risk Max Height スライダー"
+                      value="6"
+                      oninput="
+                        document.getElementById('high-risk-max-height').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="high-risk-max-height"
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="1"
+                      aria-label="High Risk Max Height"
+                      value="6"
+                      oninput="
+                        document.getElementById('high-risk-max-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="high-risk-holes-range">High Risk Holes</label>
+                    <input
+                      id="high-risk-holes-range"
+                      type="range"
+                      min="0"
+                      max="40"
+                      step="1"
+                      aria-label="High Risk Holes スライダー"
+                      value="6"
+                      oninput="
+                        document.getElementById('high-risk-holes').value =
+                          this.value
+                      "
+                    />
+                    <input
+                      id="high-risk-holes"
+                      type="number"
+                      min="0"
+                      max="40"
+                      step="1"
+                      aria-label="High Risk Holes"
+                      value="6"
+                      oninput="
+                        document.getElementById('high-risk-holes-range').value =
+                          this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="max-concurrent-workers-range"
+                      >Max Concurrent Workers</label
+                    >
+                    <input
+                      id="max-concurrent-workers-range"
+                      type="range"
+                      min="1"
+                      max="64"
+                      step="1"
+                      aria-label="Max Concurrent Workers スライダー"
+                      value="8"
+                      oninput="
+                        document.getElementById(
+                          'max-concurrent-workers',
+                        ).value = this.value
+                      "
+                    />
+                    <input
+                      id="max-concurrent-workers"
+                      type="number"
+                      min="1"
+                      max="64"
+                      step="1"
+                      aria-label="Max Concurrent Workers"
+                      value="8"
+                      oninput="
+                        document.getElementById(
+                          'max-concurrent-workers-range',
+                        ).value = this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="worker-pool-size-range">Worker Pool Size</label>
+                    <input
+                      id="worker-pool-size-range"
+                      type="range"
+                      min="1"
+                      max="16"
+                      step="1"
+                      aria-label="Worker Pool Size"
+                      value="3"
+                      oninput="
+                        document.getElementById(
+                          'worker-pool-size-number',
+                        ).value = this.value
+                      "
+                    />
+                    <input
+                      id="worker-pool-size-number"
+                      type="number"
+                      min="1"
+                      max="16"
+                      step="1"
+                      aria-label="Worker Pool Size 数値"
+                      value="3"
+                      oninput="
+                        document.getElementById(
+                          'worker-pool-size-range',
+                        ).value = this.value
+                      "
+                    />
+                  </div>
+                  <div class="setting-row">
+                    <label for="ai-disable-input">AI中入力ロック</label
+                    ><input id="ai-disable-input" type="checkbox" checked />
+                  </div>
+                  <div class="setting-row">
+                    <label for="allow-hold1">Allow Hold1</label
+                    ><input id="allow-hold1" type="checkbox" checked />
+                  </div>
+                  <div class="setting-row">
+                    <label for="allow-hold2">Allow Hold2</label
+                    ><input id="allow-hold2" type="checkbox" checked />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="a11y-notify" aria-live="polite" class="sr-only"></div>
+      </div>
+    </div>
+
+    <script type="module" src="dist/main.js"></script>
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <!-- Debug helper: expose AI logs/profiles on the page for runtime inspection -->
+    <div
+      id="ai-debug"
+      style="
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        background: #111;
+        color: #fff;
+        padding: 8px;
+        border-radius: 6px;
+        z-index: 10000;
+        font-size: 12px;
+      "
+    >
+      <div style="display: flex; gap: 6px; margin-bottom: 6px">
+        <button id="dump-ai-logs" type="button">Export AI -> window</button>
+        <button id="show-ai-logs" type="button">Show AI logs</button>
+        <button id="force-dump-ai" type="button">Force Dump AI JSON</button>
+        <button id="run-hold-sweep" type="button">Run Hold Sweep</button>
+        <button id="auto-tune-hold" type="button">Auto-tune Hold</button>
+      </div>
+      <pre
+        id="ai-debug-output"
+        style="
+          max-height: 240px;
+          overflow: auto;
+          white-space: pre-wrap;
+          margin: 0;
+          padding: 6px;
+          background: #000;
+          border-radius: 4px;
+        "
+      ></pre>
+    </div>
+    <script>
+      (function () {
+        try {
+          const dump = document.getElementById("dump-ai-logs");
+          const show = document.getElementById("show-ai-logs");
+          const out = document.getElementById("ai-debug-output");
+          if (dump)
+            dump.addEventListener("click", function () {
+              try {
+                // try direct window.ai first
+                if (window.ai) {
+                  const a = window.ai;
+                  if (typeof a.exportProfilesToWindow === "function")
+                    try {
+                      a.exportProfilesToWindow();
+                    } catch (e) {}
+                  if (typeof a.getLogs === "function")
+                    try {
+                      window.aiLogs = a.getLogs();
+                    } catch (e) {}
+                  if (typeof a.getAllProfileEvents === "function")
+                    try {
+                      window.workerProfiles = a.getAllProfileEvents();
+                    } catch (e) {}
+                }
+                // scan window for AI-like objects if nothing found
+                if (!window.aiLogs || !window.workerProfiles) {
                   try {
-                    const v = window[k];
-                    if (!v || typeof v !== 'object') continue;
-                    if (!window.aiLogs && typeof v.getLogs === 'function') {
-                      try { window.aiLogs = v.getLogs(); } catch (e) {}
+                    for (const k of Object.keys(window)) {
+                      try {
+                        const v = window[k];
+                        if (!v || typeof v !== "object") continue;
+                        if (!window.aiLogs && typeof v.getLogs === "function") {
+                          try {
+                            window.aiLogs = v.getLogs();
+                          } catch (e) {}
+                        }
+                        if (
+                          !window.workerProfiles &&
+                          typeof v.getAllProfileEvents === "function"
+                        ) {
+                          try {
+                            window.workerProfiles = v.getAllProfileEvents();
+                          } catch (e) {}
+                        }
+                        if (window.aiLogs && window.workerProfiles) break;
+                      } catch (ee) {}
                     }
-                    if (!window.workerProfiles && typeof v.getAllProfileEvents === 'function') {
-                      try { window.workerProfiles = v.getAllProfileEvents(); } catch (e) {}
-                    }
-                    if (window.aiLogs && window.workerProfiles) break;
                   } catch (ee) {}
                 }
-              } catch (ee) {}
-            }
-            out.textContent = 'export attempted; aiLogs=' + (Array.isArray(window.aiLogs) ? window.aiLogs.length : (!!window.aiLogs ? '1' : '0')) + ' workerProfiles=' + (Array.isArray(window.workerProfiles) ? window.workerProfiles.length : (!!window.workerProfiles ? '1' : '0'));
-          } catch (e) { out.textContent = 'export error: ' + String(e); }
-        });
-        const runBtn = document.getElementById('run-hold-sweep');
-        if (runBtn) runBtn.addEventListener('click', async function(){
-          try {
-            out.textContent = 'running hold-threshold sweep...';
-            const ai = window.ai;
-            if (!ai || typeof ai.runHoldThresholdSweep !== 'function') { out.textContent = 'AI sweep not available'; return; }
-            const res = await ai.runHoldThresholdSweep([4,8,12,16], 6000);
-            try { window.__holdThresholdSweepResults = res; } catch (e) {}
-            out.textContent = 'sweep complete: ' + (Array.isArray(res)?('results:'+res.length):String(res));
-          } catch (e) { out.textContent = 'sweep error: ' + String(e); }
-        });
-        const autoBtn = document.getElementById('auto-tune-hold');
-        if (autoBtn) autoBtn.addEventListener('click', async function(){
-          try {
-            out.textContent = 'running auto-tune hold threshold (this may take ~1-4 minutes)...';
-            const ai = window.ai;
-            if (!ai || typeof ai.autoTuneHoldThreshold !== 'function') { out.textContent = 'AI auto-tune not available'; return; }
-            const r = await ai.autoTuneHoldThreshold({ thresholds: [4,8,12,16], durationMs: 60000 });
-            try { window.__autoTuneResult = r; } catch (e) {}
-            try {
-              // reflect chosen value into UI input if present
-              if (r && typeof r.chosen === 'number') {
-                const inp = document.getElementById('hold-improvement-threshold');
-                if (inp && typeof inp.value === 'string') try { inp.value = String(r.chosen); } catch (ee) {}
+                out.textContent =
+                  "export attempted; aiLogs=" +
+                  (Array.isArray(window.aiLogs)
+                    ? window.aiLogs.length
+                    : !!window.aiLogs
+                      ? "1"
+                      : "0") +
+                  " workerProfiles=" +
+                  (Array.isArray(window.workerProfiles)
+                    ? window.workerProfiles.length
+                    : !!window.workerProfiles
+                      ? "1"
+                      : "0");
+              } catch (e) {
+                out.textContent = "export error: " + String(e);
               }
-            } catch (e) {}
-            out.textContent = 'auto-tune complete: chosen=' + String(r && r.chosen) + ' score=' + String(r && r.score);
-          } catch (e) { out.textContent = 'auto-tune error: ' + String(e); }
-        });
-        if (show) show.addEventListener('click', function(){
-          try {
-            if (window.ai && typeof window.ai.getLogs === 'function') {
-              const logs = window.ai.getLogs();
-              out.textContent = (Array.isArray(logs) ? logs.slice(-200).join('\n') : String(logs));
-            } else if (window.aiLogs) {
-              out.textContent = (Array.isArray(window.aiLogs) ? window.aiLogs.slice(-200).join('\n') : String(window.aiLogs));
-            } else {
-              out.textContent = 'no ai logs available';
-            }
-          } catch (e) { out.textContent = 'show error: ' + String(e); }
-        });
-        // force dump: write last N logs and profiles as JSON into the output
-        const forceDump = document.getElementById('force-dump-ai');
-        if (forceDump) forceDump.addEventListener('click', function(){
-          try {
-            const a = window.ai;
-            let logs = [];
-            let profiles = [];
-            try { logs = (a && typeof a.getLogs === 'function') ? a.getLogs() : (window.aiLogs || []); } catch (e) { logs = (window.aiLogs || []); }
-            try { profiles = (a && typeof a.getAllProfileEvents === 'function') ? a.getAllProfileEvents() : (window.workerProfiles || window.__workerProfiles || []); } catch (e) { profiles = (window.workerProfiles || window.__workerProfiles || []); }
-            const L = Array.isArray(logs) ? logs.slice(-200) : [String(logs)];
-            const P = Array.isArray(profiles) ? profiles.slice(-50) : [String(profiles)];
-            const outObj = { aiEnabled: !!a, logs: L, profiles: P };
-            out.textContent = JSON.stringify(outObj, null, 2);
-          } catch (e) { out.textContent = 'force-dump error: ' + String(e); }
-        });
-        // AI debug panel visibility toggle from AI settings
-        try {
-          const panelToggle = document.getElementById('ai-debug-panel-toggle');
-          const aiDebugPanel = document.getElementById('ai-debug');
-          if (panelToggle) {
-            // initialize from localStorage if present
-            try {
-              const stored = localStorage.getItem('aiDebugPanelVisible');
-              if (stored !== null) {
-                const visible = stored === '1';
-                panelToggle.checked = visible;
-                if (aiDebugPanel) aiDebugPanel.style.display = visible ? '' : 'none';
-              }
-            } catch (e) {}
-            panelToggle.addEventListener('change', function(){
+            });
+          const runBtn = document.getElementById("run-hold-sweep");
+          if (runBtn)
+            runBtn.addEventListener("click", async function () {
               try {
-                const visible = !!panelToggle.checked;
-                if (aiDebugPanel) aiDebugPanel.style.display = visible ? '' : 'none';
-                // also toggle AI internal debug flag if available
-                try { if (window.ai && typeof window.ai.setDebugEnabled === 'function') window.ai.setDebugEnabled(visible); } catch (e) {}
-                try { localStorage.setItem('aiDebugPanelVisible', visible ? '1' : '0'); } catch (e) {}
+                out.textContent = "running hold-threshold sweep...";
+                const ai = window.ai;
+                if (!ai || typeof ai.runHoldThresholdSweep !== "function") {
+                  out.textContent = "AI sweep not available";
+                  return;
+                }
+                const res = await ai.runHoldThresholdSweep(
+                  [4, 8, 12, 16],
+                  6000,
+                );
+                try {
+                  window.__holdThresholdSweepResults = res;
+                } catch (e) {}
+                out.textContent =
+                  "sweep complete: " +
+                  (Array.isArray(res) ? "results:" + res.length : String(res));
+              } catch (e) {
+                out.textContent = "sweep error: " + String(e);
+              }
+            });
+          const autoBtn = document.getElementById("auto-tune-hold");
+          if (autoBtn)
+            autoBtn.addEventListener("click", async function () {
+              try {
+                out.textContent =
+                  "running auto-tune hold threshold (this may take ~1-4 minutes)...";
+                const ai = window.ai;
+                if (!ai || typeof ai.autoTuneHoldThreshold !== "function") {
+                  out.textContent = "AI auto-tune not available";
+                  return;
+                }
+                const r = await ai.autoTuneHoldThreshold({
+                  thresholds: [4, 8, 12, 16],
+                  durationMs: 60000,
+                });
+                try {
+                  window.__autoTuneResult = r;
+                } catch (e) {}
+                try {
+                  // reflect chosen value into UI input if present
+                  if (r && typeof r.chosen === "number") {
+                    const inp = document.getElementById(
+                      "hold-improvement-threshold",
+                    );
+                    if (inp && typeof inp.value === "string")
+                      try {
+                        inp.value = String(r.chosen);
+                      } catch (ee) {}
+                  }
+                } catch (e) {}
+                out.textContent =
+                  "auto-tune complete: chosen=" +
+                  String(r && r.chosen) +
+                  " score=" +
+                  String(r && r.score);
+              } catch (e) {
+                out.textContent = "auto-tune error: " + String(e);
+              }
+            });
+          if (show)
+            show.addEventListener("click", function () {
+              try {
+                if (window.ai && typeof window.ai.getLogs === "function") {
+                  const logs = window.ai.getLogs();
+                  out.textContent = Array.isArray(logs)
+                    ? logs.slice(-200).join("\n")
+                    : String(logs);
+                } else if (window.aiLogs) {
+                  out.textContent = Array.isArray(window.aiLogs)
+                    ? window.aiLogs.slice(-200).join("\n")
+                    : String(window.aiLogs);
+                } else {
+                  out.textContent = "no ai logs available";
+                }
+              } catch (e) {
+                out.textContent = "show error: " + String(e);
+              }
+            });
+          // force dump: write last N logs and profiles as JSON into the output
+          const forceDump = document.getElementById("force-dump-ai");
+          if (forceDump)
+            forceDump.addEventListener("click", function () {
+              try {
+                const a = window.ai;
+                let logs = [];
+                let profiles = [];
+                try {
+                  logs =
+                    a && typeof a.getLogs === "function"
+                      ? a.getLogs()
+                      : window.aiLogs || [];
+                } catch (e) {
+                  logs = window.aiLogs || [];
+                }
+                try {
+                  profiles =
+                    a && typeof a.getAllProfileEvents === "function"
+                      ? a.getAllProfileEvents()
+                      : window.workerProfiles || window.__workerProfiles || [];
+                } catch (e) {
+                  profiles =
+                    window.workerProfiles || window.__workerProfiles || [];
+                }
+                const L = Array.isArray(logs)
+                  ? logs.slice(-200)
+                  : [String(logs)];
+                const P = Array.isArray(profiles)
+                  ? profiles.slice(-50)
+                  : [String(profiles)];
+                const outObj = { aiEnabled: !!a, logs: L, profiles: P };
+                out.textContent = JSON.stringify(outObj, null, 2);
+              } catch (e) {
+                out.textContent = "force-dump error: " + String(e);
+              }
+            });
+          // AI debug panel visibility toggle from AI settings
+          try {
+            const panelToggle = document.getElementById(
+              "ai-debug-panel-toggle",
+            );
+            const aiDebugPanel = document.getElementById("ai-debug");
+            if (panelToggle) {
+              // initialize from localStorage if present
+              try {
+                const stored = localStorage.getItem("aiDebugPanelVisible");
+                if (stored !== null) {
+                  const visible = stored === "1";
+                  panelToggle.checked = visible;
+                  if (aiDebugPanel)
+                    aiDebugPanel.style.display = visible ? "" : "none";
+                }
+              } catch (e) {}
+              panelToggle.addEventListener("change", function () {
+                try {
+                  const visible = !!panelToggle.checked;
+                  if (aiDebugPanel)
+                    aiDebugPanel.style.display = visible ? "" : "none";
+                  // also toggle AI internal debug flag if available
+                  try {
+                    if (
+                      window.ai &&
+                      typeof window.ai.setDebugEnabled === "function"
+                    )
+                      window.ai.setDebugEnabled(visible);
+                  } catch (e) {}
+                  try {
+                    localStorage.setItem(
+                      "aiDebugPanelVisible",
+                      visible ? "1" : "0",
+                    );
+                  } catch (e) {}
+                } catch (e) {}
+              });
+            }
+          } catch (e) {}
+        } catch (e) {}
+      })();
+    </script>
+
+    <script>
+      (function () {
+        function getTransformX(el) {
+          const s = window.getComputedStyle(el).transform;
+          if (!s || s === "none") return 0;
+          const m = s.match(/matrix\(([^)]+)\)/);
+          if (!m) return 0;
+          const vals = m[1].split(",").map((v) => parseFloat(v));
+          return vals.length === 6 ? vals[4] || 0 : 0;
+        }
+        function syncHud() {
+          const board = document.getElementById("board");
+          const hud = document.getElementById("hud");
+          if (!board || !hud) return;
+          const gap = 24;
+          const b = board.getBoundingClientRect();
+          const h = hud.getBoundingClientRect();
+          // compute how many px we need to push hud to the right so its left >= board.right + gap
+          const delta = Math.max(0, Math.round(b.right + gap - h.left));
+          if (delta > 0) {
+            hud.style.marginLeft = delta + "px";
+          } else {
+            hud.style.marginLeft = "";
+          }
+          // vertical: align hud top to board top using transform (visual translate)
+          try {
+            const deltaY = Math.round(b.top - h.top);
+            if (deltaY !== 0) {
+              hud.style.transform = `translateY(${deltaY}px)`;
+            } else {
+              hud.style.transform = "";
+            }
+          } catch (e) {}
+        }
+        window.addEventListener("resize", syncHud);
+        window.addEventListener("load", function () {
+          setTimeout(syncHud, 60);
+        });
+        try {
+          const b = document.getElementById("board");
+          if (b && window.ResizeObserver) {
+            const ro = new ResizeObserver(syncHud);
+            ro.observe(b);
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          const poolRange = document.getElementById("worker-pool-size-range");
+          const poolNumber = document.getElementById("worker-pool-size-number");
+          function applyPool(v) {
+            try {
+              const n = Math.max(1, Math.floor(Number(v) || 1));
+              if (
+                window.ai &&
+                typeof window.ai.setWorkerPoolSize === "function"
+              ) {
+                try {
+                  window.ai.setWorkerPoolSize(n);
+                } catch (e) {}
+              }
+            } catch (e) {}
+          }
+          if (poolRange && poolNumber) {
+            try {
+              if (
+                window.ai &&
+                typeof window.ai.getWorkerPoolSize === "function"
+              ) {
+                const cur = window.ai.getWorkerPoolSize();
+                if (typeof cur === "number") {
+                  poolRange.value = String(cur);
+                  poolNumber.value = String(cur);
+                }
+              }
+            } catch (e) {}
+            poolRange.addEventListener("input", function () {
+              try {
+                poolNumber.value = poolRange.value;
+                applyPool(poolRange.value);
+              } catch (e) {}
+            });
+            poolNumber.addEventListener("change", function () {
+              try {
+                poolRange.value = poolNumber.value;
+                applyPool(poolNumber.value);
               } catch (e) {}
             });
           }
         } catch (e) {}
-      } catch (e) {}
-    })();
-  </script>
-  
-  <script>
-    (function(){
-      function getTransformX(el){
-        const s = window.getComputedStyle(el).transform;
-        if (!s || s === 'none') return 0;
-        const m = s.match(/matrix\(([^)]+)\)/);
-        if (!m) return 0;
-        const vals = m[1].split(',').map(v=>parseFloat(v));
-        return vals.length === 6 ? (vals[4] || 0) : 0;
-      }
-      function syncHud(){
-        const board = document.getElementById('board');
-        const hud = document.getElementById('hud');
-        if(!board || !hud) return;
-        const gap = 24;
-        const b = board.getBoundingClientRect();
-        const h = hud.getBoundingClientRect();
-        // compute how many px we need to push hud to the right so its left >= board.right + gap
-        const delta = Math.max(0, Math.round((b.right + gap) - h.left));
-        if (delta > 0) {
-          hud.style.marginLeft = (delta) + 'px';
-        } else {
-          hud.style.marginLeft = '';
-        }
-        // vertical: align hud top to board top using transform (visual translate)
-        try {
-          const deltaY = Math.round(b.top - h.top);
-          if (deltaY !== 0) {
-            hud.style.transform = `translateY(${deltaY}px)`;
-          } else {
-            hud.style.transform = '';
-          }
-        } catch (e) {}
-      }
-      window.addEventListener('resize', syncHud);
-      window.addEventListener('load', function(){ setTimeout(syncHud, 60); });
-      try {
-        const b = document.getElementById('board');
-        if (b && window.ResizeObserver) {
-          const ro = new ResizeObserver(syncHud);
-          ro.observe(b);
-        }
-      } catch(e) {}
-    })();
-  </script>
-  <script>
-    (function(){
-      try {
-        const poolRange = document.getElementById('worker-pool-size-range');
-        const poolNumber = document.getElementById('worker-pool-size-number');
-        function applyPool(v){
-          try {
-            const n = Math.max(1, Math.floor(Number(v) || 1));
-            if (window.ai && typeof window.ai.setWorkerPoolSize === 'function') {
-              try { window.ai.setWorkerPoolSize(n); } catch (e) {}
-            }
-          } catch (e) {}
-        }
-        if (poolRange && poolNumber) {
-          try {
-            if (window.ai && typeof window.ai.getWorkerPoolSize === 'function') {
-              const cur = window.ai.getWorkerPoolSize();
-              if (typeof cur === 'number') { poolRange.value = String(cur); poolNumber.value = String(cur); }
-            }
-          } catch (e) {}
-          poolRange.addEventListener('input', function(){ try { poolNumber.value = poolRange.value; applyPool(poolRange.value); } catch (e) {} });
-          poolNumber.addEventListener('change', function(){ try { poolRange.value = poolNumber.value; applyPool(poolNumber.value); } catch (e) {} });
-        }
-      } catch (e) {}
-    })();
-  </script>
-</body>
+      })();
+    </script>
+  </body>
 </html>

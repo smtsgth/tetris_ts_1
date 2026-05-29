@@ -1,21 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 function mode(arr) {
   const counts = Object.create(null);
-  let max = 0, best = null;
+  let max = 0,
+    best = null;
   for (const v of arr) {
     counts[v] = (counts[v] || 0) + 1;
-    if (counts[v] > max) { max = counts[v]; best = v; }
+    if (counts[v] > max) {
+      max = counts[v];
+      best = v;
+    }
   }
-  return best === null ? null : (isFinite(best) ? Number(best) : best);
+  return best === null ? null : isFinite(best) ? Number(best) : best;
 }
 
 function median(arr) {
   if (!arr.length) return null;
-  const a = arr.slice().sort((x,y) => x - y);
+  const a = arr.slice().sort((x, y) => x - y);
   const m = Math.floor(a.length / 2);
-  return a.length % 2 === 1 ? a[m] : (a[m-1] + a[m]) / 2;
+  return a.length % 2 === 1 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
 
 function safeNumber(v) {
@@ -38,15 +42,17 @@ function collectNumeric(pathParts, out, value) {
 }
 
 function main() {
-  const recordingsDir = path.resolve(process.cwd(), 'recordings');
+  const recordingsDir = path.resolve(process.cwd(), "recordings");
   if (!fs.existsSync(recordingsDir)) {
-    console.error('recordings ディレクトリが見つかりません:', recordingsDir);
+    console.error("recordings ディレクトリが見つかりません:", recordingsDir);
     process.exit(2);
   }
 
-  const files = fs.readdirSync(recordingsDir).filter(f => /^ai_profiles_analysis_.*\.json$/.test(f));
+  const files = fs
+    .readdirSync(recordingsDir)
+    .filter((f) => /^ai_profiles_analysis_.*\.json$/.test(f));
   if (!files.length) {
-    console.error('対象ファイルが見つかりません。');
+    console.error("対象ファイルが見つかりません。");
     process.exit(1);
   }
 
@@ -57,15 +63,18 @@ function main() {
   for (const f of files) {
     const fp = path.join(recordingsDir, f);
     try {
-      const raw = fs.readFileSync(fp, 'utf8');
+      const raw = fs.readFileSync(fp, "utf8");
       const data = JSON.parse(raw);
       processed++;
 
       if (Array.isArray(data.suggestions)) {
         for (const s of data.suggestions) {
-          const key = s.key || s.name || String(s.k || '_unknown');
+          const key = s.key || s.name || String(s.k || "_unknown");
           if (s.recommended === undefined) continue;
-          suggestionsMap[key] = suggestionsMap[key] || { values: [], reasons: [] };
+          suggestionsMap[key] = suggestionsMap[key] || {
+            values: [],
+            reasons: [],
+          };
           const rec = safeNumber(s.recommended);
           suggestionsMap[key].values.push(rec !== null ? rec : s.recommended);
           if (s.reason) suggestionsMap[key].reasons.push(s.reason);
@@ -74,36 +83,45 @@ function main() {
 
       if (data.numericStats && data.numericStats.derivedTotalTimeMs) {
         const d = data.numericStats.derivedTotalTimeMs;
-        for (const k of ['mean','p90','p95','p99','median']) {
+        for (const k of ["mean", "p90", "p95", "p99", "median"]) {
           if (d[k] !== undefined) {
             const n = safeNumber(d[k]);
-            if (n !== null) collectNumeric(['derivedTotalTimeMs', k], numericAgg, n);
+            if (n !== null)
+              collectNumeric(["derivedTotalTimeMs", k], numericAgg, n);
           }
         }
       }
 
       if (data.numericStats && data.numericStats.perfTs) {
         const p = data.numericStats.perfTs;
-        for (const k of ['mean','p90','p95','p99','median']) {
+        for (const k of ["mean", "p90", "p95", "p99", "median"]) {
           if (p[k] !== undefined) {
             const n = safeNumber(p[k]);
-            if (n !== null) collectNumeric(['perfTs', k], numericAgg, n);
+            if (n !== null) collectNumeric(["perfTs", k], numericAgg, n);
           }
         }
       }
-
     } catch (err) {
-      console.error('パース失敗:', f, err && err.message);
+      console.error("パース失敗:", f, err && err.message);
     }
   }
 
   const recommendations = {};
   for (const key of Object.keys(suggestionsMap)) {
-    const arr = suggestionsMap[key].values.map(v => safeNumber(v)).filter(v => v !== null);
+    const arr = suggestionsMap[key].values
+      .map((v) => safeNumber(v))
+      .filter((v) => v !== null);
     const modeV = arr.length ? mode(arr) : null;
     const med = arr.length ? median(arr) : null;
-    const mean = arr.length ? arr.reduce((a,b) => a + b, 0) / arr.length : null;
-    recommendations[key] = { count: suggestionsMap[key].values.length, mode: modeV, median: med, mean };
+    const mean = arr.length
+      ? arr.reduce((a, b) => a + b, 0) / arr.length
+      : null;
+    recommendations[key] = {
+      count: suggestionsMap[key].values.length,
+      mode: modeV,
+      median: med,
+      mean,
+    };
   }
 
   const numericSummary = {};
@@ -113,9 +131,9 @@ function main() {
       const arr = numericAgg[statKey][metric];
       numericSummary[statKey][metric] = {
         count: arr.length,
-        mean: arr.reduce((a,b)=>a+b,0)/arr.length,
+        mean: arr.reduce((a, b) => a + b, 0) / arr.length,
         median: median(arr),
-        mode: mode(arr)
+        mode: mode(arr),
       };
     }
   }
@@ -125,13 +143,21 @@ function main() {
     recommendations,
     suggestionsRaw: suggestionsMap,
     numericSummary,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   };
 
-  const outJsonPath = path.resolve(process.cwd(), 'docs', 'ai_profiles_aggregate.json');
-  const outMdPath = path.resolve(process.cwd(), 'docs', 'ai_profiles_recommendations.md');
+  const outJsonPath = path.resolve(
+    process.cwd(),
+    "docs",
+    "ai_profiles_aggregate.json",
+  );
+  const outMdPath = path.resolve(
+    process.cwd(),
+    "docs",
+    "ai_profiles_recommendations.md",
+  );
 
-  fs.writeFileSync(outJsonPath, JSON.stringify(out, null, 2), 'utf8');
+  fs.writeFileSync(outJsonPath, JSON.stringify(out, null, 2), "utf8");
 
   let md = `# AI Profiles Aggregation\r\n\r\nFiles processed: ${processed}\r\nGenerated: ${out.generatedAt}\r\n\r\n## Recommendations\r\n\r\n`;
   for (const k of Object.keys(recommendations)) {
@@ -146,14 +172,14 @@ function main() {
       const v = numericSummary[sKey][m];
       md += `- ${m}: count=${v.count}, mean=${v.mean.toFixed(2)}, median=${v.median}, mode=${v.mode}\r\n`;
     }
-    md += '\r\n';
+    md += "\r\n";
   }
 
-  fs.writeFileSync(outMdPath, md, 'utf8');
+  fs.writeFileSync(outMdPath, md, "utf8");
 
-  console.log('集計完了');
-  console.log('出力:', outJsonPath);
-  console.log('サマリ:', outMdPath);
+  console.log("集計完了");
+  console.log("出力:", outJsonPath);
+  console.log("サマリ:", outMdPath);
 }
 
 if (require.main === module) main();

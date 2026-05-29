@@ -1,5 +1,12 @@
-import { COLS, ROWS, HIDDEN_ROWS, BLOCK_SIZE, VISIBLE_ROWS, PieceType } from './constants.js';
-import { Bag, Piece, Matrix, getKickOffsets } from './tetromino.js';
+import {
+  COLS,
+  ROWS,
+  HIDDEN_ROWS,
+  BLOCK_SIZE,
+  VISIBLE_ROWS,
+  PieceType,
+} from "./constants.js";
+import { Bag, Piece, Matrix, getKickOffsets } from "./tetromino.js";
 
 export type Cell = PieceType | null;
 
@@ -54,7 +61,17 @@ export default class Game {
   private notifications: Array<{ msg: string; ts: number }> = [];
   // runtime lock monitoring
   private lockEvents: Array<any> = [];
-  private lockStats: { totalLocks: number; anomalyCount: number; lastLockTs: number; rapidLockThresholdMs: number } = { totalLocks: 0, anomalyCount: 0, lastLockTs: 0, rapidLockThresholdMs: 50 };
+  private lockStats: {
+    totalLocks: number;
+    anomalyCount: number;
+    lastLockTs: number;
+    rapidLockThresholdMs: number;
+  } = {
+    totalLocks: 0,
+    anomalyCount: 0,
+    lastLockTs: 0,
+    rapidLockThresholdMs: 50,
+  };
   private monitorLocks: boolean = true;
 
   constructor() {
@@ -67,10 +84,21 @@ export default class Game {
     this.board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     this.bag = new Bag();
     this.nextQueue = [];
-    for (let i = 0; i < this.nextQueueLength; i++) this.nextQueue.push(this.bag.next());
-    this.hold1 = null; this.hold2 = null; this.score = 0; this.lines = 0; this.level = 0; this.over = false; this.paused = false;
-    this.lastHoldSlot = null; this.lastHoldTimestamp = 0;
-    this.lastMoveWasRotation = false; this.b2b = false; this.combo = 0; this.lastRotationKick = null;
+    for (let i = 0; i < this.nextQueueLength; i++)
+      this.nextQueue.push(this.bag.next());
+    this.hold1 = null;
+    this.hold2 = null;
+    this.score = 0;
+    this.lines = 0;
+    this.level = 0;
+    this.over = false;
+    this.paused = false;
+    this.lastHoldSlot = null;
+    this.lastHoldTimestamp = 0;
+    this.lastMoveWasRotation = false;
+    this.b2b = false;
+    this.combo = 0;
+    this.lastRotationKick = null;
     this.spawn();
     this.emit();
   }
@@ -79,23 +107,36 @@ export default class Game {
   public setNextQueueLength(n: number) {
     const v = Math.max(1, Math.floor(Number(n) || 0));
     this.nextQueueLength = v;
-    while (this.nextQueue.length < this.nextQueueLength) this.nextQueue.push(this.bag.next());
+    while (this.nextQueue.length < this.nextQueueLength)
+      this.nextQueue.push(this.bag.next());
     while (this.nextQueue.length > this.nextQueueLength) this.nextQueue.pop();
   }
 
-  public setAllowHold1(v: boolean) { this.allowHold1 = !!v; }
-  public setAllowHold2(v: boolean) { this.allowHold2 = !!v; }
+  public setAllowHold1(v: boolean) {
+    this.allowHold1 = !!v;
+  }
+  public setAllowHold2(v: boolean) {
+    this.allowHold2 = !!v;
+  }
 
   private pushNotification(msg: string) {
     const payload = { msg, ts: Date.now() };
     this.notifications.push(payload);
     // dispatch a DOM event so UI layers can react immediately (toasts, flashes)
-    try { window.dispatchEvent(new CustomEvent('game-notification', { detail: payload })); } catch (e) { }
+    try {
+      window.dispatchEvent(
+        new CustomEvent("game-notification", { detail: payload }),
+      );
+    } catch (e) {}
     if (this.notifications.length > 20) this.notifications.shift();
   }
 
-  onChange(fn: () => void) { this.listeners.push(fn); }
-  private emit() { this.listeners.forEach(f => f()); }
+  onChange(fn: () => void) {
+    this.listeners.push(fn);
+  }
+  private emit() {
+    this.listeners.forEach((f) => f());
+  }
 
   // Lock monitoring APIs
   public getLockStats() {
@@ -120,9 +161,16 @@ export default class Game {
     } catch (e) {}
   }
 
-  public setLockMonitorEnabled(v: boolean) { this.monitorLocks = !!v; }
+  public setLockMonitorEnabled(v: boolean) {
+    this.monitorLocks = !!v;
+  }
 
-  public setLockRapidThresholdMs(ms: number) { this.lockStats.rapidLockThresholdMs = Math.max(0, Math.floor(Number(ms) || 0)); }
+  public setLockRapidThresholdMs(ms: number) {
+    this.lockStats.rapidLockThresholdMs = Math.max(
+      0,
+      Math.floor(Number(ms) || 0),
+    );
+  }
 
   spawn() {
     // Peek next piece and only mutate the queue if spawn succeeds. This prevents the
@@ -130,7 +178,8 @@ export default class Game {
     const t = this.nextQueue.length ? this.nextQueue[0] : this.bag.next();
     const newQueued = this.bag.next();
     const candidate = new Piece(t);
-    candidate.x = 3; candidate.y = -1;
+    candidate.x = 3;
+    candidate.y = -1;
     // if candidate cannot be placed, set game over but do not advance the next queue
     if (!this.isValidPos(candidate.matrix, candidate.x, candidate.y)) {
       this.current = candidate;
@@ -165,7 +214,13 @@ export default class Game {
 
   move(dx: number, dy = 0) {
     if (!this.current) return false;
-    if (this.isValidPos(this.current.matrix, this.current.x + dx, this.current.y + dy)) {
+    if (
+      this.isValidPos(
+        this.current.matrix,
+        this.current.x + dx,
+        this.current.y + dy,
+      )
+    ) {
       this.current.x += dx;
       this.current.y += dy;
       this.lastMoveWasRotation = false;
@@ -175,14 +230,23 @@ export default class Game {
     return false;
   }
 
-  rotateCW() { this.rotate(true); }
-  rotateCCW() { this.rotate(false); }
+  rotateCW() {
+    this.rotate(true);
+  }
+  rotateCCW() {
+    this.rotate(false);
+  }
 
   private rotate(directionCW: boolean) {
     if (!this.current) return;
     const clone = this.current.clone();
-    if (directionCW) clone.rotateCW(); else clone.rotateCCW();
-    const kicks = getKickOffsets(this.current.type, this.current.rotation, clone.rotation);
+    if (directionCW) clone.rotateCW();
+    else clone.rotateCCW();
+    const kicks = getKickOffsets(
+      this.current.type,
+      this.current.rotation,
+      clone.rotation,
+    );
     for (const k of kicks) {
       const nx = clone.x + k[0];
       const ny = clone.y + k[1];
@@ -204,7 +268,7 @@ export default class Game {
   hardDrop() {
     if (!this.current) return;
     let drop = 0;
-    while (this.move(0,1)) drop++;
+    while (this.move(0, 1)) drop++;
     this.score += drop * 2;
     this.lock();
     this.emit();
@@ -212,7 +276,7 @@ export default class Game {
 
   softDrop() {
     if (!this.current) return;
-    if (this.move(0,1)) {
+    if (this.move(0, 1)) {
       this.score += 1;
       this.emit();
     } else {
@@ -226,14 +290,27 @@ export default class Game {
     if (this.over) return;
     if (slot !== 1 && slot !== 2) return;
     // respect allowHold toggles
-    if (slot === 1 && !this.allowHold1) { this.pushNotification('Hold1 は無効です'); return; }
-    if (slot === 2 && !this.allowHold2) { this.pushNotification('Hold2 は無効です'); return; }
+    if (slot === 1 && !this.allowHold1) {
+      this.pushNotification("Hold1 は無効です");
+      return;
+    }
+    if (slot === 2 && !this.allowHold2) {
+      this.pushNotification("Hold2 は無効です");
+      return;
+    }
     const now = Date.now();
     // prevent multiple holds for the same spawned piece
-    if (this.holdUsedThisTurn) { this.pushNotification('ホールドはこのターンですでに使用されています'); return; }
+    if (this.holdUsedThisTurn) {
+      this.pushNotification("ホールドはこのターンですでに使用されています");
+      return;
+    }
     // prevent very rapid swaps between different slots
-    if (this.lastHoldSlot !== null && this.lastHoldSlot !== slot && (now - this.lastHoldTimestamp) < this.HOLD_SWAP_COOLDOWN) {
-      this.pushNotification('ホールド切替は速すぎます');
+    if (
+      this.lastHoldSlot !== null &&
+      this.lastHoldSlot !== slot &&
+      now - this.lastHoldTimestamp < this.HOLD_SWAP_COOLDOWN
+    ) {
+      this.pushNotification("ホールド切替は速すぎます");
       return;
     }
     const curType = this.current.type;
@@ -242,11 +319,13 @@ export default class Game {
       if (prev) {
         // swap
         this.current = new Piece(prev);
-        this.current.x = 3; this.current.y = -1;
+        this.current.x = 3;
+        this.current.y = -1;
         this.hold1 = curType;
         this.pushNotification(`Hold1 交換: ${prev}↔${curType}`);
         // mark last hold on this turn
-        this.lastHoldSlot = 1; this.lastHoldTimestamp = Date.now();
+        this.lastHoldSlot = 1;
+        this.lastHoldTimestamp = Date.now();
         this.holdUsedThisTurn = true;
       } else {
         // store and spawn next
@@ -259,10 +338,12 @@ export default class Game {
       const prev = this.hold2;
       if (prev) {
         this.current = new Piece(prev);
-        this.current.x = 3; this.current.y = -1;
+        this.current.x = 3;
+        this.current.y = -1;
         this.hold2 = curType;
         this.pushNotification(`Hold2 交換: ${prev}↔${curType}`);
-        this.lastHoldSlot = 2; this.lastHoldTimestamp = Date.now();
+        this.lastHoldSlot = 2;
+        this.lastHoldTimestamp = Date.now();
         this.holdUsedThisTurn = true;
       } else {
         this.hold2 = curType;
@@ -274,14 +355,19 @@ export default class Game {
     this.emit();
   }
 
-  private isTSpin(piece: Piece): 'none'|'mini'|'full' {
-    if (piece.type !== 'T') return 'none';
-    if (!this.lastMoveWasRotation) return 'none';
+  private isTSpin(piece: Piece): "none" | "mini" | "full" {
+    if (piece.type !== "T") return "none";
+    if (!this.lastMoveWasRotation) return "none";
     const pivotX = piece.x + 1;
     const pivotY = piece.y + 1;
     let corners = 0;
-    const checks = [ [-1,-1],[1,-1],[-1,1],[1,1] ];
-    for (const [dx,dy] of checks) {
+    const checks = [
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ];
+    for (const [dx, dy] of checks) {
       const x = pivotX + dx;
       const y = pivotY + dy;
       if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
@@ -290,10 +376,14 @@ export default class Game {
         corners++;
       }
     }
-    if (corners < 3) return 'none';
+    if (corners < 3) return "none";
     // stricter: classify mini vs full based on whether a non-zero kick was used
-    if (this.lastRotationKick && (this.lastRotationKick[0] !== 0 || this.lastRotationKick[1] !== 0)) return 'full';
-    return 'mini';
+    if (
+      this.lastRotationKick &&
+      (this.lastRotationKick[0] !== 0 || this.lastRotationKick[1] !== 0)
+    )
+      return "full";
+    return "mini";
   }
 
   lock() {
@@ -305,10 +395,20 @@ export default class Game {
     const now = Date.now();
     let beforeFilled = 0;
     if (this.monitorLocks) {
-      try { beforeFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0); } catch (e) { beforeFilled = 0; }
+      try {
+        beforeFilled = this.board.reduce(
+          (acc, row) => acc + row.filter((c) => c !== null).length,
+          0,
+        );
+      } catch (e) {
+        beforeFilled = 0;
+      }
     }
 
-    const tspinType = this.lastMoveWasRotation && piece.type === 'T' ? this.isTSpin(piece) : 'none';
+    const tspinType =
+      this.lastMoveWasRotation && piece.type === "T"
+        ? this.isTSpin(piece)
+        : "none";
     const m = piece.matrix;
     for (let r = 0; r < m.length; r++) {
       for (let c = 0; c < m[r].length; c++) {
@@ -327,28 +427,52 @@ export default class Game {
     // record lock event
     if (this.monitorLocks) {
       let afterFilled = 0;
-      try { afterFilled = this.board.reduce((acc, row) => acc + row.filter(c => c !== null).length, 0); } catch (e) { afterFilled = 0; }
+      try {
+        afterFilled = this.board.reduce(
+          (acc, row) => acc + row.filter((c) => c !== null).length,
+          0,
+        );
+      } catch (e) {
+        afterFilled = 0;
+      }
       try {
         this.lockStats.totalLocks = (this.lockStats.totalLocks || 0) + 1;
-        const delta = this.lockStats.lastLockTs ? (now - this.lockStats.lastLockTs) : Number.POSITIVE_INFINITY;
-        const isRapid = typeof delta === 'number' && delta < (this.lockStats.rapidLockThresholdMs || 50);
-        const ev: any = { ts: now, type: isRapid ? 'rapid-lock' : 'lock', piece: piece.type, beforeFilled, afterFilled, delta };
+        const delta = this.lockStats.lastLockTs
+          ? now - this.lockStats.lastLockTs
+          : Number.POSITIVE_INFINITY;
+        const isRapid =
+          typeof delta === "number" &&
+          delta < (this.lockStats.rapidLockThresholdMs || 50);
+        const ev: any = {
+          ts: now,
+          type: isRapid ? "rapid-lock" : "lock",
+          piece: piece.type,
+          beforeFilled,
+          afterFilled,
+          delta,
+        };
         this.lockEvents.push(ev);
         if (isRapid) {
           this.lockStats.anomalyCount = (this.lockStats.anomalyCount || 0) + 1;
-          try { this.pushNotification('Lock anomaly: rapid consecutive lock detected'); } catch (e) {}
-          try { console.warn('Lock anomaly detected', ev); } catch (e) {}
+          try {
+            this.pushNotification(
+              "Lock anomaly: rapid consecutive lock detected",
+            );
+          } catch (e) {}
+          try {
+            console.warn("Lock anomaly detected", ev);
+          } catch (e) {}
         }
         this.lockStats.lastLockTs = now;
       } catch (e) {}
     }
 
     // notifications
-    if (tspinType === 'full') this.pushNotification('T-Spin');
-    else if (tspinType === 'mini') this.pushNotification('T-Spin Mini');
-    if (cleared >= 4) this.pushNotification('TETRIS');
+    if (tspinType === "full") this.pushNotification("T-Spin");
+    else if (tspinType === "mini") this.pushNotification("T-Spin Mini");
+    if (cleared >= 4) this.pushNotification("TETRIS");
     if (this.combo > 1) this.pushNotification(`Combo x${this.combo}`);
-    if (this.b2b) this.pushNotification('B2B');
+    if (this.b2b) this.pushNotification("B2B");
     this.spawn();
     this.lastMoveWasRotation = false;
     this.lastRotationKick = null;
@@ -357,9 +481,9 @@ export default class Game {
 
   private clearLines() {
     let cleared = 0;
-    for (let r = ROWS -1; r >= 0; r--) {
-      if (this.board[r].every(cell => cell !== null)) {
-        this.board.splice(r,1);
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (this.board[r].every((cell) => cell !== null)) {
+        this.board.splice(r, 1);
         this.board.unshift(Array(COLS).fill(null));
         cleared++;
         r++; // recheck same index after shift
@@ -373,22 +497,28 @@ export default class Game {
     return cleared;
   }
 
-  private addScore(cleared: number, tspinType: 'none'|'mini'|'full' = 'none') {
-    const levelMult = (this.level + 1);
+  private addScore(
+    cleared: number,
+    tspinType: "none" | "mini" | "full" = "none",
+  ) {
+    const levelMult = this.level + 1;
     let base = 0;
     let eligibleForB2B = false;
-    const isTSpin = tspinType !== 'none';
+    const isTSpin = tspinType !== "none";
     if (isTSpin) {
       if (cleared === 1) base = 800 * levelMult;
       else if (cleared === 2) base = 1200 * levelMult;
       else if (cleared === 3) base = 1600 * levelMult;
       // full T-Spins are eligible for B2B; mini are not
-      if (tspinType === 'full') eligibleForB2B = true;
+      if (tspinType === "full") eligibleForB2B = true;
     } else {
       if (cleared === 1) base = 100 * levelMult;
       else if (cleared === 2) base = 300 * levelMult;
       else if (cleared === 3) base = 500 * levelMult;
-      else if (cleared >= 4) { base = 800 * levelMult; eligibleForB2B = true; }
+      else if (cleared >= 4) {
+        base = 800 * levelMult;
+        eligibleForB2B = true;
+      }
     }
 
     // back-to-back bonus
@@ -415,7 +545,10 @@ export default class Game {
     }
   }
 
-  togglePause() { this.paused = !this.paused; this.emit(); }
+  togglePause() {
+    this.paused = !this.paused;
+    this.emit();
+  }
 
   update(ts: number) {
     if (this.over) return;
@@ -427,7 +560,7 @@ export default class Game {
     const interval = Math.max(1000 - this.level * 75, 100);
     if (this.dropTimer >= interval) {
       this.dropTimer = 0;
-      if (!this.move(0,1)) {
+      if (!this.move(0, 1)) {
         // cannot move down -> lock
         this.lock();
       }
@@ -447,10 +580,10 @@ export default class Game {
       lines: this.lines,
       level: this.level,
       paused: this.paused,
-      over: this.over
-      ,b2b: this.b2b
-      ,combo: this.combo
-      ,notifications: this.notifications.slice()
+      over: this.over,
+      b2b: this.b2b,
+      combo: this.combo,
+      notifications: this.notifications.slice(),
     };
   }
 }

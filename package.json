@@ -11,23 +11,22 @@
     "collect-logs": "node ./scripts/collect-logs.js http://localhost:8080 1800",
     "auto-test": "node ./scripts/auto_test_early_fallback.js",
     "auto-test:ci": "node ./scripts/auto-test-ci.js",
-    "auto-test:ci": "node ./scripts/auto-test-ci.js",
     "test": "vitest",
     "test:ci": "node ./scripts/test-ci.js",
     "test:watch": "vitest --watch",
-    "aggregate-profiles": "node ./scripts/aggregate_profiles.js"
-    ,
+    "aggregate-profiles": "node ./scripts/aggregate_profiles.js",
     "bench:combo": "node ./scripts/run_combo_bench.js"
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "^6.4.0",
+    "eslint": "^8.50.0",
     "http-server": "^14.1.1",
     "typescript": "^4.9.5",
-    "vitest": "^0.34.2",
-    "eslint": "^8.50.0",
-    "@typescript-eslint/parser": "^6.4.0"
+    "vitest": "^0.34.2"
   },
   "dependencies": {
-    "puppeteer": "^24.42.0",
-    "chart.js": "^4.4.0"
+    "acorn": "^8.8.2",
+    "chart.js": "^4.4.0",
+    "puppeteer": "^24.42.0"
   }
 }

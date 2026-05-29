@@ -3,6 +3,7 @@
 簡易的な TypeScript 製テトリス実装（ブラウザ）。
 
 ## 使い方
+
 1. 依存をインストール
 
 ```bash
@@ -25,6 +26,7 @@ npm test
 `npm start` 実行後、`http-server` がローカルで立ち上がり、ブラウザで `index.html` を開けば動作します。
 
 ## ファイル構成（主なもの）
+
 - [docs/design.md](docs/design.md) : 設計仕様書
 - [index.html](index.html)
 - [src/](src) : TypeScript ソース
@@ -35,11 +37,13 @@ npm test
   - [src/main.ts](src/main.ts) エントリ
 
 ## 次の作業案
+
 - 回転の壁キックを SRS 準拠にする
 - DAS/ARR や T-Spin 判定の実装
 - モバイル操作、サウンド、スコア詳細表示
 
 ## データ収集とプロット（自動化ワークフロー）
+
 簡易的に自動収集 → 集約 → プロット生成を行うスクリプトを用意しています。
 
 - **サーバ起動（ビルド含む）**: `npm install` 後に次を実行します。
@@ -86,7 +90,7 @@ npm test
 
 詳しくは `scripts/plot_timestamps.js` と `scripts/analyze_timestamps_aggregate.js` を参照してください。
 
-  ## CI ワークフロー
-  リポジトリには GitHub Actions ワークフローを追加しています: `.github/workflows/timestamps-ci.yml`。
-  ワークフローは手動トリガー（workflow_dispatch）または該当ファイル変更時に動作し、ビルド→30-run の自動収集→集約(BOOTSTRAP=10000)→プロット→`recordings/` を成果物としてアップロードします。
+## CI ワークフロー
 
+リポジトリには GitHub Actions ワークフローを追加しています: `.github/workflows/timestamps-ci.yml`。
+ワークフローは手動トリガー（workflow_dispatch）または該当ファイル変更時に動作し、ビルド→30-run の自動収集→集約(BOOTSTRAP=10000)→プロット→`recordings/` を成果物としてアップロードします。
