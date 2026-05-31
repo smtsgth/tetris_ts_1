@@ -834,6 +834,14 @@ declare const self: DedicatedWorkerGlobalScope;
           }
           const cacheKey = String(y);
           let cacheForY: Uint32Array | undefined = cacheObj.map[cacheKey];
+          // LRU: on cache hit, move key to the back (most-recently-used)
+          if (cacheForY) {
+            const kidx = cacheObj.keys.indexOf(cacheKey);
+            if (kidx >= 0) {
+              cacheObj.keys.splice(kidx, 1);
+              cacheObj.keys.push(cacheKey);
+            }
+          }
           if (!cacheForY) {
             const __t_cache0 = profEnabledLocal ? profNowLocal() : 0;
             cacheForY = new Uint32Array(colAddList.length);
