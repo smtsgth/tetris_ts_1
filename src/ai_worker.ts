@@ -89,6 +89,9 @@ declare const self: DedicatedWorkerGlobalScope;
     // runtime cache for shifted colAdds keyed by y; may contain eviction metadata
     // shape at runtime: { map: Record<string, Uint32Array>, keys: string[] }
     colAddsShiftCache?: any;
+    // precomputed shifted masks table for a range of y values (optional)
+    colAddsShiftTable?: Uint32Array[];
+    colAddsShiftTableMinY?: number;
   };
   type PreRotMap = Record<string, number[][][]>;
   type RotBBoxMap = Record<string, { minC: number; maxC: number }[]>;
@@ -189,6 +192,10 @@ declare const self: DedicatedWorkerGlobalScope;
   >;
   // limit for per-entry colAddsShiftCache (to bound memory usage)
   const COL_ADDS_SHIFT_CACHE_LIMIT = 8;
+  // precompute shifted colAdds for y in this inclusive range to avoid runtime shifts
+  const PRECOMP_COLADDS_Y_MIN = -4;
+  const PRECOMP_COLADDS_Y_MAX = 31;
+  const PRECOMP_COLADDS_Y_COUNT = PRECOMP_COLADDS_Y_MAX - PRECOMP_COLADDS_Y_MIN + 1;
   for (const t in PRE_ROTATIONS) {
     PRE_ROT_ROW_MASKS[t] = [];
     for (let rot = 0; rot < PRE_ROTATIONS[t].length; rot++) {
@@ -226,7 +233,33 @@ declare const self: DedicatedWorkerGlobalScope;
         const colsListArr: number[] = [];
         for (let c = 0; c < COLS; c++) if (colAdds[c]) colsListArr.push(c);
         const colAddList = new Uint8Array(colsListArr);
-        masksArr.push({ shift, masks, topRows, colAdds, colAddList });
+        // precompute shifted masks for a fixed y-range to avoid runtime shifting
+        let colAddsShiftTable: Uint32Array[] | undefined;
+        if (colAddList.length > 0) {
+          colAddsShiftTable = new Array(PRECOMP_COLADDS_Y_COUNT);
+          for (let yi = 0; yi < PRECOMP_COLADDS_Y_COUNT; yi++) {
+            const yval = PRECOMP_COLADDS_Y_MIN + yi;
+            const arr = new Uint32Array(colAddList.length);
+            if (yval >= 0) {
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const rel = colAdds[c] || 0;
+                if (!rel) continue;
+                arr[ii] = (rel << yval) >>> 0;
+              }
+            } else {
+              const rsh = -yval;
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const rel = colAdds[c] || 0;
+                if (!rel) continue;
+                arr[ii] = (rel >>> rsh) >>> 0;
+              }
+            }
+            colAddsShiftTable[yi] = arr;
+          }
+        }
+        masksArr.push({ shift, masks, topRows, colAdds, colAddList, colAddsShiftTable, colAddsShiftTableMinY: PRECOMP_COLADDS_Y_MIN });
       }
       PRE_ROT_ROW_MASKS[t][rot] = { minX, maxX, masksArr };
     }
@@ -826,56 +859,76 @@ declare const self: DedicatedWorkerGlobalScope;
         const colAddList = (entry as any).colAddList as Uint8Array | undefined;
         const rowMaskLimit = rowsForBoard >= 32 ? 0xffffffff >>> 0 : ((1 << rowsForBoard) - 1) >>> 0;
         if (colAdds && colAddList && colAddList.length > 0) {
-          // cache shifted per-column additions per-entry per-y to avoid recomputing shifts
-          let cacheObj = (entry as any).colAddsShiftCache;
-          if (!cacheObj || !cacheObj.map) {
-            cacheObj = { map: Object.create(null), keys: [] };
-            (entry as any).colAddsShiftCache = cacheObj;
+          // prefer precomputed shifted masks table if available
+          let usedPrecomp = false;
+          const preTable = (entry as any).colAddsShiftTable as Uint32Array[] | undefined;
+          const preMinY = (entry as any).colAddsShiftTableMinY as number | undefined;
+          if (preTable && typeof preMinY === "number") {
+            const idx = y - preMinY;
+            if (idx >= 0 && idx < preTable.length) {
+              usedPrecomp = true;
+              const __t_pc = profEnabledLocal ? profNowLocal() : 0;
+              const tableRow = preTable[idx];
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const mask = tableRow[ii] & rowMaskLimit;
+                if (mask) tmpColBits[c] |= mask;
+              }
+              if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_pc;
+            }
           }
-          const cacheKey = String(y);
-          let cacheForY: Uint32Array | undefined = cacheObj.map[cacheKey];
-          // LRU: on cache hit, move key to the back (most-recently-used)
-          if (cacheForY) {
-            const kidx = cacheObj.keys.indexOf(cacheKey);
-            if (kidx >= 0) {
-              cacheObj.keys.splice(kidx, 1);
+          if (!usedPrecomp) {
+            // cache shifted per-column additions per-entry per-y to avoid recomputing shifts
+            let cacheObj = (entry as any).colAddsShiftCache;
+            if (!cacheObj || !cacheObj.map) {
+              cacheObj = { map: Object.create(null), keys: [] };
+              (entry as any).colAddsShiftCache = cacheObj;
+            }
+            const cacheKey = String(y);
+            let cacheForY: Uint32Array | undefined = cacheObj.map[cacheKey];
+            // LRU: on cache hit, move key to the back (most-recently-used)
+            if (cacheForY) {
+              const kidx = cacheObj.keys.indexOf(cacheKey);
+              if (kidx >= 0) {
+                cacheObj.keys.splice(kidx, 1);
+                cacheObj.keys.push(cacheKey);
+              }
+            }
+            if (!cacheForY) {
+              const __t_cache0 = profEnabledLocal ? profNowLocal() : 0;
+              cacheForY = new Uint32Array(colAddList.length);
+              if (y >= 0) {
+                for (let ii = 0; ii < colAddList.length; ii++) {
+                  const c = colAddList[ii];
+                  const rel = colAdds[c] || 0;
+                  if (!rel) continue;
+                  const shifted = (rel << y) >>> 0;
+                  cacheForY[ii] = shifted & rowMaskLimit;
+                }
+              } else {
+                const rsh = -y;
+                for (let ii = 0; ii < colAddList.length; ii++) {
+                  const c = colAddList[ii];
+                  const rel = colAdds[c] || 0;
+                  if (!rel) continue;
+                  const shifted = (rel >>> rsh) >>> 0;
+                  cacheForY[ii] = shifted & rowMaskLimit;
+                }
+              }
+              // eviction if exceeding per-entry cache limit
+              if (cacheObj.keys.length >= COL_ADDS_SHIFT_CACHE_LIMIT) {
+                const oldest = cacheObj.keys.shift();
+                if (oldest) delete cacheObj.map[oldest];
+              }
+              cacheObj.map[cacheKey] = cacheForY;
               cacheObj.keys.push(cacheKey);
+              if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_cache0;
             }
-          }
-          if (!cacheForY) {
-            const __t_cache0 = profEnabledLocal ? profNowLocal() : 0;
-            cacheForY = new Uint32Array(colAddList.length);
-            if (y >= 0) {
-              for (let ii = 0; ii < colAddList.length; ii++) {
-                const c = colAddList[ii];
-                const rel = colAdds[c] || 0;
-                if (!rel) continue;
-                const shifted = (rel << y) >>> 0;
-                cacheForY[ii] = shifted & rowMaskLimit;
-              }
-            } else {
-              const rsh = -y;
-              for (let ii = 0; ii < colAddList.length; ii++) {
-                const c = colAddList[ii];
-                const rel = colAdds[c] || 0;
-                if (!rel) continue;
-                const shifted = (rel >>> rsh) >>> 0;
-                cacheForY[ii] = shifted & rowMaskLimit;
-              }
+            for (let ii = 0; ii < colAddList.length; ii++) {
+              const c = colAddList[ii];
+              const mask = cacheForY[ii];
+              if (mask) tmpColBits[c] |= mask;
             }
-            // eviction if exceeding per-entry cache limit
-            if (cacheObj.keys.length >= COL_ADDS_SHIFT_CACHE_LIMIT) {
-              const oldest = cacheObj.keys.shift();
-              if (oldest) delete cacheObj.map[oldest];
-            }
-            cacheObj.map[cacheKey] = cacheForY;
-            cacheObj.keys.push(cacheKey);
-            if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_cache0;
-          }
-          for (let ii = 0; ii < colAddList.length; ii++) {
-            const c = colAddList[ii];
-            const mask = cacheForY[ii];
-            if (mask) tmpColBits[c] |= mask;
           }
         } else {
           const __t_app_mask0 = profEnabledLocal ? profNowLocal() : 0;
