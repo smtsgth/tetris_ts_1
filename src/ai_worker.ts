@@ -3,6 +3,27 @@
 declare const self: DedicatedWorkerGlobalScope;
 (function () {
   const COLS = 10;
+  // Lightweight micro-profiler (low overhead when disabled)
+  if (!(globalThis as any).__mprof) {
+    (globalThis as any).__mprof = {
+      enabled: false,
+      data: Object.create(null),
+      add(name: string, delta: number) {
+        if (!(this as any).enabled) return;
+        const d = (this as any).data[name] || ((this as any).data[name] = { calls: 0, time: 0 });
+        d.calls++;
+        d.time += delta;
+      },
+      reset() {
+        (this as any).data = Object.create(null);
+      },
+      report() {
+        return (this as any).data;
+      },
+    };
+  }
+  const MPR = (globalThis as any).__mprof as { enabled: boolean; data: any; add: (name: string, delta: number) => void; reset: () => void; report: () => any };
+  const MPR_NOW = (typeof (globalThis as any).performance !== 'undefined' && typeof (globalThis as any).performance.now === 'function') ? () => (globalThis as any).performance.now() : () => Date.now();
   const SHAPES: Record<string, number[][]> = {
     I: [
       [0, 0, 0, 0],
@@ -59,7 +80,16 @@ declare const self: DedicatedWorkerGlobalScope;
   type Cell = null | string | number;
   type BoardArray = Cell[][];
   type Bitboard = Uint16Array;
-  type MasksArrEntry = { shift: number; masks: Uint16Array };
+  type MasksArrEntry = {
+    shift: number;
+    masks: Uint16Array;
+    topRows: Int8Array;
+    colAdds?: Uint32Array;
+    colAddList?: Uint8Array;
+    // runtime cache for shifted colAdds keyed by y; may contain eviction metadata
+    // shape at runtime: { map: Record<string, Uint32Array>, keys: string[] }
+    colAddsShiftCache?: any;
+  };
   type PreRotMap = Record<string, number[][][]>;
   type RotBBoxMap = Record<string, { minC: number; maxC: number }[]>;
   interface Placement {
@@ -157,6 +187,8 @@ declare const self: DedicatedWorkerGlobalScope;
     string,
     { minX: number; maxX: number; masksArr: MasksArrEntry[] }[]
   >;
+  // limit for per-entry colAddsShiftCache (to bound memory usage)
+  const COL_ADDS_SHIFT_CACHE_LIMIT = 8;
   for (const t in PRE_ROTATIONS) {
     PRE_ROT_ROW_MASKS[t] = [];
     for (let rot = 0; rot < PRE_ROTATIONS[t].length; rot++) {
@@ -167,17 +199,34 @@ declare const self: DedicatedWorkerGlobalScope;
       const masksArr: MasksArrEntry[] = [];
       for (let shift = minX; shift <= maxX; shift++) {
         const masks = new Uint16Array(mat.length);
+        const topRows = new Int8Array(COLS);
+        for (let i = 0; i < COLS; i++) topRows[i] = -1;
         for (let r = 0; r < mat.length; r++) {
           let rowMask = 0;
           for (let c = 0; c < mat[r].length; c++) {
             if (mat[r][c]) {
               const bx = shift + c;
-              if (bx >= 0 && bx < COLS) rowMask |= 1 << bx;
+              if (bx >= 0 && bx < COLS) {
+                rowMask |= 1 << bx;
+                if (topRows[bx] === -1 || topRows[bx] > r) topRows[bx] = r;
+              }
             }
           }
           masks[r] = rowMask;
         }
-        masksArr.push({ shift, masks });
+        // precompute per-column relative bit masks for this rotated/shifted entry
+        const colAdds = new Uint32Array(COLS);
+        for (let rr = 0; rr < mat.length; rr++) {
+          for (let cc = 0; cc < mat[rr].length; cc++) {
+            if (!mat[rr][cc]) continue;
+            const bx = shift + cc;
+            if (bx >= 0 && bx < COLS) colAdds[bx] |= 1 << rr;
+          }
+        }
+        const colsListArr: number[] = [];
+        for (let c = 0; c < COLS; c++) if (colAdds[c]) colsListArr.push(c);
+        const colAddList = new Uint8Array(colsListArr);
+        masksArr.push({ shift, masks, topRows, colAdds, colAddList });
       }
       PRE_ROT_ROW_MASKS[t][rot] = { minX, maxX, masksArr };
     }
@@ -431,6 +480,23 @@ declare const self: DedicatedWorkerGlobalScope;
     const topKToUse = topKLocalKey;
     const topPlacements: Placement[] = allocTopPlacements(topKToUse);
     let topCount = 0;
+    // local profiler handles (low overhead when disabled)
+    const profEnabledLocal = MPR && MPR.enabled;
+    const profNowLocal = MPR_NOW;
+    const __gp_start = profEnabledLocal ? profNowLocal() : 0;
+    let __gp_place_check = 0,
+      __gp_drop_calc = 0,
+      __gp_drop_adjust_up = 0,
+      __gp_drop_adjust_down = 0,
+      __gp_apply_build = 0,
+      __gp_apply_build_coladds = 0,
+      __gp_apply_build_masks = 0,
+      __gp_delta_eval = 0,
+      __gp_delta_eval_cols = 0,
+      __gp_delta_eval_bump = 0,
+      __gp_compact_eval = 0,
+      __gp_heap = 0,
+      __gp_restore = 0;
     // Min-heap helpers (heap root = smallest score) to keep top-K with O(log K)
     function heapSiftUp(heap: Placement[], idx: number) {
       while (idx > 0) {
@@ -524,6 +590,24 @@ declare const self: DedicatedWorkerGlobalScope;
     // per-candidate column masks (bits per row) to avoid scanning entire board per column
     const tmpColBits = new Uint32Array(COLS);
 
+    // small caches to avoid repeated trailing-zero / popcount on identical bit patterns
+    const _tzCache = new Map<number, number>();
+    const _popCache = new Map<number, number>();
+    const cachedTZ = (v: number) => {
+      const g = _tzCache.get(v);
+      if (g !== undefined) return g;
+      const r = trailingZero32(v);
+      _tzCache.set(v, r);
+      return r;
+    };
+    const cachedPop = (v: number) => {
+      const g = _popCache.get(v);
+      if (g !== undefined) return g;
+      const r = popcount32(v);
+      _popCache.set(v, r);
+      return r;
+    };
+
     // lazily build final compacted board from tmpColBits when a top candidate needs it
     function buildFinalBoardFromTmpColBits(rows: number) {
       const out = new Uint16Array(rows);
@@ -580,6 +664,8 @@ declare const self: DedicatedWorkerGlobalScope;
     // scratch copy reused across candidates to avoid full-board copies per candidate
     const scratch = boardBits.slice();
     const tmpSavedRows = new Uint16Array(4); // up to 4 rows per piece
+    const tmpSavedIdx = new Uint8Array(4);
+    let tmpSavedIdxLen = 0;
     for (let rot = 0; rot < 4; rot++) {
       const rotInfo = PRE_ROT_ROW_MASKS[type] && PRE_ROT_ROW_MASKS[type][rot];
       if (!rotInfo) continue;
@@ -612,6 +698,7 @@ declare const self: DedicatedWorkerGlobalScope;
         const entry = masksArr[si];
         const masks = entry.masks;
         // inline canPlaceBB(boardBits, masks, startY) for startY check
+        const __t_place_check0 = profEnabledLocal ? profNowLocal() : 0;
         let placeStartOk = true;
         for (let r = 0; r < masks.length; r++) {
           const maskRow = masks[r] || 0;
@@ -626,27 +713,45 @@ declare const self: DedicatedWorkerGlobalScope;
             break;
           }
         }
-        if (!placeStartOk) continue;
+        if (!placeStartOk) {
+          if (profEnabledLocal) __gp_place_check += profNowLocal() - __t_place_check0;
+          continue;
+        }
         // inline dropYBB(boardBits, masks, startY) (use colFirst precomp)
+        const __t_drop0 = profEnabledLocal ? profNowLocal() : 0;
         let allowed = Infinity;
-        for (let r = 0; r < masks.length; r++) {
-          const m = masks[r] || 0;
-          if (!m) continue;
-          const bits = SET_BITS[m];
-          for (let bi = 0; bi < bits.length; bi++) {
-            const c = bits[bi];
-            const a = colFirst[c] - r - 1;
+        const topRows = (entry as any).topRows as Int8Array | undefined;
+        if (topRows) {
+          for (let c = 0; c < COLS; c++) {
+            const tr = topRows[c];
+            if (tr === -1) continue;
+            const a = colFirst[c] - tr - 1;
             if (a < allowed) allowed = a;
           }
+        } else {
+          for (let r = 0; r < masks.length; r++) {
+            const m = masks[r] || 0;
+            if (!m) continue;
+            const bits = SET_BITS[m];
+            for (let bi = 0; bi < bits.length; bi++) {
+              const c = bits[bi];
+              const a = colFirst[c] - r - 1;
+              if (a < allowed) allowed = a;
+            }
+          }
         }
+        const __t_allowed_end = profEnabledLocal ? profNowLocal() : 0;
         let y;
         if (!isFinite(allowed)) {
           y = startY;
+          if (profEnabledLocal) __gp_drop_calc += __t_allowed_end - __t_drop0;
         } else {
           const maxY = rowsForBoard - masks.length;
           y = Math.min(allowed, maxY);
           if (y < startY) y = startY;
+          if (profEnabledLocal) __gp_drop_calc += __t_allowed_end - __t_drop0;
           // sanity adjustments (inline canPlace checks)
+          const __t_adjust_up0 = profEnabledLocal ? profNowLocal() : 0;
           while (true) {
             const yCheck = y + 1;
             let ok = true;
@@ -669,6 +774,8 @@ declare const self: DedicatedWorkerGlobalScope;
             }
             break;
           }
+          if (profEnabledLocal) __gp_drop_adjust_up += profNowLocal() - __t_adjust_up0;
+          const __t_adjust_down0 = profEnabledLocal ? profNowLocal() : 0;
           while (true) {
             const yCheck = y;
             let ok = true;
@@ -691,10 +798,14 @@ declare const self: DedicatedWorkerGlobalScope;
             }
             break;
           }
+          if (profEnabledLocal) __gp_drop_adjust_down += profNowLocal() - __t_adjust_down0;
         }
         // apply masks to scratch, saving original rows to restore later
+        const __t_app0 = profEnabledLocal ? profNowLocal() : 0;
         let anyCleared = false;
         const n = scratch.length;
+        // save only rows that will be modified to minimize restore work
+        tmpSavedIdxLen = 0;
         for (let r = 0; r < masks.length; r++) {
           const by = y + r;
           const maskRow = masks[r] || 0;
@@ -702,87 +813,170 @@ declare const self: DedicatedWorkerGlobalScope;
           tmpSavedRows[r] = prev;
           if (maskRow && by >= 0 && by < n) {
             const now = prev | maskRow;
-            scratch[by] = now;
+            if (now !== prev) {
+              scratch[by] = now;
+              tmpSavedIdx[tmpSavedIdxLen++] = r;
+            }
             if (now === fullMask) anyCleared = true;
           }
         }
         // build per-column bit additions for this piece (used by both delta and clear paths)
         tmpColBits.fill(0);
-        for (let rr = 0; rr < masks.length; rr++) {
-          const by = y + rr;
-          if (by < 0 || by >= rowsForBoard) continue;
-          const rowMask = masks[rr] || 0;
-          if (!rowMask) continue;
-          const bits = SET_BITS[rowMask];
-          for (let bi = 0; bi < bits.length; bi++) {
-            const c = bits[bi];
-            tmpColBits[c] |= 1 << by;
+        const colAdds = (entry as any).colAdds as Uint32Array | undefined;
+        const colAddList = (entry as any).colAddList as Uint8Array | undefined;
+        const rowMaskLimit = rowsForBoard >= 32 ? 0xffffffff >>> 0 : ((1 << rowsForBoard) - 1) >>> 0;
+        if (colAdds && colAddList && colAddList.length > 0) {
+          // cache shifted per-column additions per-entry per-y to avoid recomputing shifts
+          let cacheObj = (entry as any).colAddsShiftCache;
+          if (!cacheObj || !cacheObj.map) {
+            cacheObj = { map: Object.create(null), keys: [] };
+            (entry as any).colAddsShiftCache = cacheObj;
           }
+          const cacheKey = String(y);
+          let cacheForY: Uint32Array | undefined = cacheObj.map[cacheKey];
+          if (!cacheForY) {
+            const __t_cache0 = profEnabledLocal ? profNowLocal() : 0;
+            cacheForY = new Uint32Array(colAddList.length);
+            if (y >= 0) {
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const rel = colAdds[c] || 0;
+                if (!rel) continue;
+                const shifted = (rel << y) >>> 0;
+                cacheForY[ii] = shifted & rowMaskLimit;
+              }
+            } else {
+              const rsh = -y;
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const rel = colAdds[c] || 0;
+                if (!rel) continue;
+                const shifted = (rel >>> rsh) >>> 0;
+                cacheForY[ii] = shifted & rowMaskLimit;
+              }
+            }
+            // eviction if exceeding per-entry cache limit
+            if (cacheObj.keys.length >= COL_ADDS_SHIFT_CACHE_LIMIT) {
+              const oldest = cacheObj.keys.shift();
+              if (oldest) delete cacheObj.map[oldest];
+            }
+            cacheObj.map[cacheKey] = cacheForY;
+            cacheObj.keys.push(cacheKey);
+            if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_cache0;
+          }
+          for (let ii = 0; ii < colAddList.length; ii++) {
+            const c = colAddList[ii];
+            const mask = cacheForY[ii];
+            if (mask) tmpColBits[c] |= mask;
+          }
+        } else {
+          const __t_app_mask0 = profEnabledLocal ? profNowLocal() : 0;
+          for (let rr = 0; rr < masks.length; rr++) {
+            const by = y + rr;
+            if (by < 0 || by >= rowsForBoard) continue;
+            const rowMask = masks[rr] || 0;
+            if (!rowMask) continue;
+            const bits = SET_BITS[rowMask];
+            for (let bi = 0; bi < bits.length; bi++) {
+              const c = bits[bi];
+              tmpColBits[c] |= 1 << by;
+            }
+          }
+          if (profEnabledLocal) __gp_apply_build_masks += profNowLocal() - __t_app_mask0;
         }
+        if (profEnabledLocal) __gp_apply_build += profNowLocal() - __t_app0;
         let score: number;
         let finalBoard: Bitboard | undefined;
         let cleared = 0;
         if (!anyCleared) {
+          const __t_delta0 = profEnabledLocal ? profNowLocal() : 0;
           // delta evaluation: update heights/holes only for affected columns
           let colsMask = 0;
           for (let rr = 0; rr < masks.length; rr++) colsMask |= masks[rr] || 0;
-          const cols = SET_BITS[colsMask];
-          if (!cols || cols.length === 0) {
+          if (!colsMask) {
             score =
               0 * W_LINES -
               aggSum * W_AGG -
               holesSum * W_HOLES -
               bumpSum * W_BUMP;
           } else {
-            // compute new heights/holes for affected columns using column-bitsets (avoid scanning whole board)
-            tmpColBits.fill(0);
-            for (let rr = 0; rr < masks.length; rr++) {
-              const by = y + rr;
-              if (by < 0 || by >= rowsForBoard) continue;
-              const rowMask = masks[rr] || 0;
-              if (!rowMask) continue;
-              const bits = SET_BITS[rowMask];
-              for (let bi = 0; bi < bits.length; bi++) {
-                const c = bits[bi];
-                tmpColBits[c] |= 1 << by;
+            // quick optimistic upper-bound pruning: if top-K is full and
+            // even the optimistic best-case score can't beat heap root, skip
+            if (topCount === topKToUse) {
+              const colsQuick = SET_BITS[colsMask];
+              let onesAddedTotal = 0;
+              for (let qi = 0; qi < colsQuick.length; qi++) {
+                const cc = colsQuick[qi];
+                const v = tmpColBits[cc] || 0;
+                if (v) onesAddedTotal += cachedPop(v);
               }
-            }
-            let deltaAgg = 0,
-              deltaHoles = 0;
-            for (let ci = 0; ci < cols.length; ci++) {
-              const c = cols[ci];
-              const oldBits = colBits[c] || 0;
-              const addBits = tmpColBits[c] || 0;
-              const newBits = oldBits | addBits;
-              if (newBits === oldBits) {
+              const optimisticHoles = Math.max(0, holesSum - onesAddedTotal);
+              const optimisticScore = 0 * W_LINES - aggSum * W_AGG - optimisticHoles * W_HOLES - 0 * W_BUMP;
+              if (optimisticScore <= topPlacements[0].score) {
+                if (profEnabledLocal) __gp_delta_eval += profNowLocal() - __t_delta0;
                 continue;
               }
-              if (newBits === 0) {
-                tmpNewHeights[c] = 0;
-                tmpNewHoles[c] = 0;
+            }
+              // tmpColBits already built above for this candidate; reuse it here
+              let deltaAgg = 0,
+                deltaHoles = 0;
+              const cols = SET_BITS[colsMask];
+              const __t_delta_cols0 = profEnabledLocal ? profNowLocal() : 0;
+              for (let ci = 0; ci < cols.length; ci++) {
+                const c = cols[ci];
+                const oldBits = colBits[c] || 0;
+                const addBits = tmpColBits[c] || 0;
+                if (!addBits && oldBits === 0) {
+                  // nothing
+                  continue;
+                }
+                if (!addBits) {
+                  // no addition, skip
+                  continue;
+                }
+                const oldFirst = colFirst[c];
+                // case: column was empty
+                if (oldFirst >= rowsForBoard) {
+                  const addLowest = cachedTZ(addBits);
+                  const newFirstIdx = addLowest;
+                  const newH = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx;
+                  const onesAddedBelow = newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0;
+                  const newHole = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx - 1 - onesAddedBelow;
+                  tmpNewHeights[c] = newH;
+                  tmpNewHoles[c] = newHole;
+                  modifiedFlag[c] = 1;
+                  deltaAgg += newH - heights[c];
+                  deltaHoles += newHole - holesArr[c];
+                  continue;
+                }
+                const addLowest = cachedTZ(addBits);
+                if (addLowest >= oldFirst) {
+                  // height unchanged; only holes may decrease (add bits fill zeros below first)
+                  const onesAddedBelow = oldFirst + 1 < 32 ? cachedPop(addBits >>> (oldFirst + 1)) : 0;
+                  const newHole = holesArr[c] - onesAddedBelow;
+                  tmpNewHeights[c] = heights[c];
+                  tmpNewHoles[c] = newHole;
+                  modifiedFlag[c] = 1;
+                  deltaAgg += 0;
+                  deltaHoles += newHole - holesArr[c];
+                  continue;
+                }
+                // addLowest < oldFirst -> new first comes from added bits
+                const newFirstIdx = addLowest;
+                const onesOldBelow = cachedPop(oldBits >>> (newFirstIdx + 1));
+                const onesAddedBelow = newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0;
+                const onesBelow = onesOldBelow + onesAddedBelow;
+                const newH = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx;
+                const newHole = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx - 1 - onesBelow;
+                tmpNewHeights[c] = newH;
+                tmpNewHoles[c] = newHole;
                 modifiedFlag[c] = 1;
-                deltaAgg += 0 - heights[c];
-                deltaHoles += 0 - holesArr[c];
-                continue;
+                deltaAgg += newH - heights[c];
+                deltaHoles += newHole - holesArr[c];
               }
-              const newFirstIdx = trailingZero32(newBits);
-              const newH =
-                newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx;
-              let onesBelow = 0;
-              if (newFirstIdx + 1 < 32) {
-                onesBelow = popcount32(newBits >>> (newFirstIdx + 1));
-              }
-              const newHole =
-                newFirstIdx >= rowsForBoard
-                  ? 0
-                  : rowsForBoard - newFirstIdx - 1 - onesBelow;
-              tmpNewHeights[c] = newH;
-              tmpNewHoles[c] = newHole;
-              modifiedFlag[c] = 1;
-              deltaAgg += newH - heights[c];
-              deltaHoles += newHole - holesArr[c];
-            }
+              if (profEnabledLocal) __gp_delta_eval_cols += profNowLocal() - __t_delta_cols0;
             // compute bump delta by checking neighbor boundaries touching modified columns
+            const __t_delta_bump0 = profEnabledLocal ? profNowLocal() : 0;
             let deltaBump = 0;
             for (let i = 0; i < COLS - 1; i++) {
               if (!modifiedFlag[i] && !modifiedFlag[i + 1]) continue;
@@ -793,21 +987,27 @@ declare const self: DedicatedWorkerGlobalScope;
               deltaBump +=
                 Math.abs(h0 - h1) - Math.abs(heights[i] - heights[i + 1]);
             }
+            if (profEnabledLocal) __gp_delta_eval_bump += profNowLocal() - __t_delta_bump0;
             score =
               0 * W_LINES -
               (aggSum + deltaAgg) * W_AGG -
               (holesSum + deltaHoles) * W_HOLES -
               (bumpSum + deltaBump) * W_BUMP;
-            // clear modified flags and temp arrays for reused buffers
-            for (let ci = 0; ci < cols.length; ci++) {
-              const cc = cols[ci];
+            // clear modified flags and temp arrays for reused buffers (iterate colsMask)
+            let m3 = colsMask;
+            while (m3) {
+              const lsb3 = m3 & -m3;
+              const cc = trailingZero32(lsb3);
               modifiedFlag[cc] = 0;
               tmpNewHeights[cc] = 0;
               tmpNewHoles[cc] = 0;
               tmpColBits[cc] = 0;
+              m3 ^= lsb3;
             }
+          if (profEnabledLocal) __gp_delta_eval += profNowLocal() - __t_delta0;
           }
         } else {
+          const __t_comp0 = profEnabledLocal ? profNowLocal() : 0;
           // Compaction: avoid allocating 'out' by compacting per-column bitsets directly
           // Identify cleared rows from scratch
           let clearedMask = 0;
@@ -873,8 +1073,10 @@ declare const self: DedicatedWorkerGlobalScope;
             tmpNewHoles[c] = 0;
             modifiedFlag[c] = 0;
           }
+          if (profEnabledLocal) __gp_compact_eval += profNowLocal() - __t_comp0;
         }
         placementsConsidered++;
+        const __t_heap0 = profEnabledLocal ? profNowLocal() : 0;
         if (topCount < topKToUse) {
           if (!finalBoard)
             finalBoard = anyCleared
@@ -905,11 +1107,16 @@ declare const self: DedicatedWorkerGlobalScope;
             heapReplaceRoot(candidate);
           }
         }
-        // restore scratch rows
-        for (let r = 0; r < masks.length; r++) {
+        if (profEnabledLocal) __gp_heap += profNowLocal() - __t_heap0;
+        // restore only modified rows
+        const __t_rest0 = profEnabledLocal ? profNowLocal() : 0;
+        for (let ri = 0; ri < tmpSavedIdxLen; ri++) {
+          const r = tmpSavedIdx[ri];
           const by = y + r;
           if (by >= 0 && by < scratch.length) scratch[by] = tmpSavedRows[r];
         }
+        tmpSavedIdxLen = 0;
+        if (profEnabledLocal) __gp_restore += profNowLocal() - __t_rest0;
       }
     }
     // finalize top-K list and cache it
@@ -918,6 +1125,26 @@ declare const self: DedicatedWorkerGlobalScope;
     const topSlice = topPlacements.slice(0, topCount);
     topSlice.sort((a, b) => b.score - a.score);
     const top = topSlice.slice(0, topKToUseFinal);
+    // aggregate profiler data for this invocation
+    if (profEnabledLocal) {
+      try {
+        const __t_end = profNowLocal();
+        MPR.add("gpf.total", __t_end - __gp_start);
+        if (__gp_place_check) MPR.add("gpf.place_check", __gp_place_check);
+        if (__gp_drop_calc) MPR.add("gpf.drop_calc", __gp_drop_calc);
+        if (__gp_drop_adjust_up) MPR.add("gpf.drop_adjust_up", __gp_drop_adjust_up);
+        if (__gp_drop_adjust_down) MPR.add("gpf.drop_adjust_down", __gp_drop_adjust_down);
+        if (__gp_apply_build) MPR.add("gpf.apply_build", __gp_apply_build);
+        if (__gp_apply_build_coladds) MPR.add("gpf.apply_build_coladds", __gp_apply_build_coladds);
+        if (__gp_apply_build_masks) MPR.add("gpf.apply_build_masks", __gp_apply_build_masks);
+        if (__gp_delta_eval) MPR.add("gpf.delta_eval", __gp_delta_eval);
+        if (__gp_delta_eval_cols) MPR.add("gpf.delta_eval_cols", __gp_delta_eval_cols);
+        if (__gp_delta_eval_bump) MPR.add("gpf.delta_eval_bump", __gp_delta_eval_bump);
+        if (__gp_compact_eval) MPR.add("gpf.compact_eval", __gp_compact_eval);
+        if (__gp_heap) MPR.add("gpf.heap", __gp_heap);
+        if (__gp_restore) MPR.add("gpf.restore", __gp_restore);
+      } catch (e) {}
+    }
     // cache only the top-K candidates to limit memory
     placementCache.set(key, top);
     placementCacheMisses++;
@@ -947,6 +1174,82 @@ declare const self: DedicatedWorkerGlobalScope;
   let cancelled = false;
   self.onmessage = function (e: MessageEvent<WorkerInMsg>) {
     const msg = e.data || ({} as WorkerInMsg);
+    // Profiler control messages (mprof)
+    if (msg && (msg as any).type === "mprof") {
+      const action = (msg as any).action || "report";
+      try {
+        if (action === "enable") {
+          MPR.enabled = true;
+          try {
+            self.postMessage({ type: "mprof_ack", status: "enabled" });
+          } catch (e) {}
+        } else if (action === "disable") {
+          MPR.enabled = false;
+          try {
+            self.postMessage({ type: "mprof_report", data: MPR.report() });
+          } catch (e) {}
+        } else if (action === "reset") {
+          MPR.reset();
+          try {
+            self.postMessage({ type: "mprof_ack", status: "reset" });
+          } catch (e) {}
+        } else {
+          try {
+            self.postMessage({ type: "mprof_report", data: MPR.report() });
+          } catch (e) {}
+        }
+      } catch (e) {}
+      return;
+    }
+    // Microbench mode: run internal hot functions repeatedly and report timings.
+    if (msg && msg.type === "microbench") {
+      (async () => {
+        try {
+          const trials = Number((msg as any).trials || 50);
+          const piece = (msg as any).piece || "T";
+          const topK = typeof (msg as any).topK === "number" ? (msg as any).topK : TOP_K;
+          const boardArg = (msg as any).board || [];
+          const clearCache = Boolean((msg as any).clearCache);
+          if (clearCache) {
+            try {
+              placementCache.clear();
+            } catch (e) {}
+          }
+          const times: number[] = [];
+          const nowFn = (typeof (globalThis as any).performance !== 'undefined' && typeof (globalThis as any).performance.now === 'function') ? () => (globalThis as any).performance.now() : () => Date.now();
+          const startAll = nowFn();
+          for (let i = 0; i < trials; i++) {
+            const t0 = nowFn();
+            try {
+              await generatePlacementsForType(boardArg as any, piece as string, String((msg as any).reqId || "mb" + i), topK as number);
+            } catch (e) {
+              // swallow individual errors
+            }
+            const t1 = nowFn();
+            times.push(t1 - t0);
+          }
+          const endAll = nowFn();
+          const sum = times.reduce((a, b) => a + b, 0);
+          const out = {
+            type: "microbench_result",
+            reqId: msg.reqId,
+            piece,
+            trials,
+            times,
+            totalMs: endAll - startAll,
+            avgMs: times.length ? sum / times.length : 0,
+          } as any;
+          try {
+            self.postMessage(out);
+          } catch (e) {}
+        } catch (err) {
+          try {
+            self.postMessage({ type: "microbench_error", reqId: msg.reqId, error: String(err) });
+          } catch (e) {}
+        }
+      })();
+      return;
+    }
     // support cancel messages
     if (msg && msg.type === "cancel") {
       cancelled = true;
