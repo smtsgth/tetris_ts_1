@@ -53,6 +53,22 @@ jobs:
           # Use an early cutoff to ensure all outputs are treated as post-run for the current job
           node scripts/aggregate_mprof_split.js 1970-01-01T00-00-00-000Z
 
+      - name: Generate PR comment body
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          node scripts/ci_pr_comment.js > pr_comment.md || true
+
+      - name: Post PR comment
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s pr_comment.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md --repo ${{ github.repository }} || true
+          else
+            echo 'No comment generated.'
+          fi
+
       - name: Show diff summary
         run: |
           echo '=== Diff summary ==='
