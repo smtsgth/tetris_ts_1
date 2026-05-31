@@ -91,8 +91,12 @@ declare const self: DedicatedWorkerGlobalScope;
     colAddsShiftCache?: any;
     // precomputed shifted masks table for a range of y values (optional)
     colAddsShiftTable?: Uint32Array[];
+    // precomputed per-shift trailing-zero and popcount for colAddsShiftTable
+    colAddsShiftTableTZ?: Uint8Array[];
+    colAddsShiftTablePop?: Uint8Array[];
     colAddsShiftTableMinY?: number;
     colAddListIndexMap?: Uint8Array;
+    colAddsPoolKey?: string;
   };
   type PreRotMap = Record<string, number[][][]>;
   type RotBBoxMap = Record<string, { minC: number; maxC: number }[]>;
@@ -191,12 +195,22 @@ declare const self: DedicatedWorkerGlobalScope;
     string,
     { minX: number; maxX: number; masksArr: MasksArrEntry[] }[]
   >;
+  // Pool to deduplicate colAddsShiftTable across identical colAdds patterns
+  const COLADDS_PRE_TABLE_POOL = new Map<string, { table: Uint32Array[]; tz?: Uint8Array[]; pop?: Uint8Array[]; minY: number }>();
   // limit for per-entry colAddsShiftCache (to bound memory usage)
   const COL_ADDS_SHIFT_CACHE_LIMIT = 8;
+  // Global runtime cache for shifted colAdds shared across entries (LRU via Map ordering)
+  const GLOBAL_COLADDS_RUNTIME_CACHE = new Map<string, Uint32Array>();
+  const GLOBAL_COLADDS_RUNTIME_CACHE_LIMIT = 1024;
+  // Frequency tracking for promotions to global cache (avoid polluting with rare y keys)
+  const GLOBAL_COLADDS_RUNTIME_CACHE_FREQ = new Map<string, number>();
+  const GLOBAL_COLADDS_RUNTIME_CACHE_MIN_HITS_TO_PROMOTE = 4;
   // precompute shifted colAdds for y in this inclusive range to avoid runtime shifts
-  const PRECOMP_COLADDS_Y_MIN = -4;
-  const PRECOMP_COLADDS_Y_MAX = 31;
+  const PRECOMP_COLADDS_Y_MIN = -12;
+  const PRECOMP_COLADDS_Y_MAX = 47;
   const PRECOMP_COLADDS_Y_COUNT = PRECOMP_COLADDS_Y_MAX - PRECOMP_COLADDS_Y_MIN + 1;
+  // toggle to temporarily disable precomputed table usage (A/B testing)
+  const FORCE_DISABLE_PRECOMP = false;
   for (const t in PRE_ROTATIONS) {
     PRE_ROT_ROW_MASKS[t] = [];
     for (let rot = 0; rot < PRE_ROTATIONS[t].length; rot++) {
@@ -243,31 +257,58 @@ declare const self: DedicatedWorkerGlobalScope;
         }
         // precompute shifted masks for a fixed y-range to avoid runtime shifting
         let colAddsShiftTable: Uint32Array[] | undefined;
+        let colAddsShiftTableTZ: Uint8Array[] | undefined;
+        let colAddsShiftTablePop: Uint8Array[] | undefined;
+        let poolKey: string | undefined;
         if (colAddList.length > 0) {
-          colAddsShiftTable = new Array(PRECOMP_COLADDS_Y_COUNT);
-          for (let yi = 0; yi < PRECOMP_COLADDS_Y_COUNT; yi++) {
-            const yval = PRECOMP_COLADDS_Y_MIN + yi;
-            const arr = new Uint32Array(colAddList.length);
-            if (yval >= 0) {
-              for (let ii = 0; ii < colAddList.length; ii++) {
-                const c = colAddList[ii];
-                const rel = colAdds[c] || 0;
-                if (!rel) continue;
-                arr[ii] = (rel << yval) >>> 0;
+          // deduplicate tables by colAdds pattern to save compute and memory
+          const keyParts: string[] = [];
+          for (let ii = 0; ii < colAddList.length; ii++) keyParts.push(String(colAdds[colAddList[ii]]));
+          poolKey = keyParts.join(',');
+          const pooled = COLADDS_PRE_TABLE_POOL.get(poolKey);
+          if (pooled) {
+            colAddsShiftTable = pooled.table;
+            colAddsShiftTableTZ = pooled.tz;
+            colAddsShiftTablePop = pooled.pop;
+          } else {
+            colAddsShiftTable = new Array(PRECOMP_COLADDS_Y_COUNT);
+            colAddsShiftTableTZ = new Array(PRECOMP_COLADDS_Y_COUNT);
+            colAddsShiftTablePop = new Array(PRECOMP_COLADDS_Y_COUNT);
+            for (let yi = 0; yi < PRECOMP_COLADDS_Y_COUNT; yi++) {
+              const yval = PRECOMP_COLADDS_Y_MIN + yi;
+              const arr = new Uint32Array(colAddList.length);
+              const arrTZ = new Uint8Array(colAddList.length);
+              const arrPop = new Uint8Array(colAddList.length);
+              if (yval >= 0) {
+                for (let ii = 0; ii < colAddList.length; ii++) {
+                  const c = colAddList[ii];
+                  const rel = colAdds[c] || 0;
+                  if (!rel) continue;
+                  const val = (rel << yval) >>> 0;
+                  arr[ii] = val;
+                  arrTZ[ii] = val ? trailingZero32(val) : 32;
+                  arrPop[ii] = popcount32(val);
+                }
+              } else {
+                const rsh = -yval;
+                for (let ii = 0; ii < colAddList.length; ii++) {
+                  const c = colAddList[ii];
+                  const rel = colAdds[c] || 0;
+                  if (!rel) continue;
+                  const val = (rel >>> rsh) >>> 0;
+                  arr[ii] = val;
+                  arrTZ[ii] = val ? trailingZero32(val) : 32;
+                  arrPop[ii] = popcount32(val);
+                }
               }
-            } else {
-              const rsh = -yval;
-              for (let ii = 0; ii < colAddList.length; ii++) {
-                const c = colAddList[ii];
-                const rel = colAdds[c] || 0;
-                if (!rel) continue;
-                arr[ii] = (rel >>> rsh) >>> 0;
-              }
+              colAddsShiftTable[yi] = arr;
+              colAddsShiftTableTZ[yi] = arrTZ;
+              colAddsShiftTablePop[yi] = arrPop;
             }
-            colAddsShiftTable[yi] = arr;
+            COLADDS_PRE_TABLE_POOL.set(poolKey, { table: colAddsShiftTable, tz: colAddsShiftTableTZ, pop: colAddsShiftTablePop, minY: PRECOMP_COLADDS_Y_MIN });
           }
         }
-        masksArr.push({ shift, masks, topRows, colAdds, colAddList, colAddsShiftTable, colAddsShiftTableMinY: PRECOMP_COLADDS_Y_MIN, colAddListIndexMap });
+        masksArr.push({ shift, masks, topRows, colAdds, colAddList, colAddsShiftTable, colAddsShiftTableTZ, colAddsShiftTablePop, colAddsShiftTableMinY: PRECOMP_COLADDS_Y_MIN, colAddListIndexMap, colAddsPoolKey: poolKey });
       }
       PRE_ROT_ROW_MASKS[t][rot] = { minX, maxX, masksArr };
     }
@@ -484,7 +525,7 @@ declare const self: DedicatedWorkerGlobalScope;
     // normalize board to bitboard (array of row masks)
     let boardBits: Bitboard;
     if (board && board.length && typeof board[0] !== "number")
-      boardBits = boardArrayToBitboard(board as BoardArray);
+      boardBits = cloneBitboard(board as Bitboard);
     else boardBits = cloneBitboard(board as Bitboard);
     const bHash = hashBoard(boardBits);
     const topKLocalKey =
@@ -521,6 +562,9 @@ declare const self: DedicatedWorkerGlobalScope;
     const topKToUse = topKLocalKey;
     const topPlacements: Placement[] = allocTopPlacements(topKToUse);
     let topCount = 0;
+    // small-K fast path helpers: track min element index/score to avoid heap ops when K is small
+    let topMinIndex = 0;
+    let topMinScore = Number.POSITIVE_INFINITY;
     // local profiler handles (low overhead when disabled)
     const profEnabledLocal = MPR && MPR.enabled;
     const profNowLocal = MPR_NOW;
@@ -531,13 +575,27 @@ declare const self: DedicatedWorkerGlobalScope;
       __gp_drop_adjust_down = 0,
       __gp_apply_build = 0,
       __gp_apply_build_coladds = 0,
+      __gp_apply_build_coladds_pre_table_apply = 0,
+      __gp_apply_build_coladds_cache_build = 0,
+      __gp_apply_build_coladds_cache_apply = 0,
       __gp_apply_build_masks = 0,
+      __gp_apply_build_coladdlist_iter = 0,
+      __gp_apply_build_indexmap_scan = 0,
+      __gp_apply_build_shift_calc = 0,
+      __gp_apply_build_cache_build_shift = 0,
+      __gp_apply_build_cache_build_loop = 0,
+      __gp_apply_build_cache_apply_loop = 0,
       __gp_delta_eval = 0,
       __gp_delta_eval_cols = 0,
       __gp_delta_eval_bump = 0,
       __gp_compact_eval = 0,
       __gp_heap = 0,
-      __gp_restore = 0;
+      __gp_heap_push = 0,
+      __gp_heap_replace = 0,
+      __gp_restore = 0,
+      __gp_coladds_precomp_hits = 0,
+      __gp_coladds_cache_hits = 0,
+      __gp_coladds_cache_misses = 0;
     // Min-heap helpers (heap root = smallest score) to keep top-K with O(log K)
     function heapSiftUp(heap: Placement[], idx: number) {
       while (idx > 0) {
@@ -628,24 +686,40 @@ declare const self: DedicatedWorkerGlobalScope;
     const tmpNewHeights = new Int16Array(COLS);
     const tmpNewHoles = new Int16Array(COLS);
     const modifiedFlag = new Uint8Array(COLS);
+    const modifiedCols: number[] = [];
     // per-candidate column masks (bits per row) to avoid scanning entire board per column
     const tmpColBits = new Uint32Array(COLS);
 
-    // small caches to avoid repeated trailing-zero / popcount on identical bit patterns
-    const _tzCache = new Map<number, number>();
-    const _popCache = new Map<number, number>();
+    // small, fast hash caches for trailing-zero / popcount to reduce Map overhead
+    // Use fixed-size open-addressing style hash (simple overwrite on collision)
+    const TZ_CACHE_BITS = 11; // 2048 entries
+    const TZ_CACHE_SIZE = 1 << TZ_CACHE_BITS;
+    const tzKeys = new Uint32Array(TZ_CACHE_SIZE);
+    for (let i = 0; i < TZ_CACHE_SIZE; i++) tzKeys[i] = 0xffffffff;
+    const tzVals = new Uint8Array(TZ_CACHE_SIZE);
+
+    const POP_CACHE_BITS = 12; // 4096 entries
+    const POP_CACHE_SIZE = 1 << POP_CACHE_BITS;
+    const popKeys = new Uint32Array(POP_CACHE_SIZE);
+    for (let i = 0; i < POP_CACHE_SIZE; i++) popKeys[i] = 0xffffffff;
+    const popVals = new Uint8Array(POP_CACHE_SIZE);
+
     const cachedTZ = (v: number) => {
-      const g = _tzCache.get(v);
-      if (g !== undefined) return g;
+      if (v === 0) return 32;
+      const idx = ((v * 2654435761) >>> (32 - TZ_CACHE_BITS)) & (TZ_CACHE_SIZE - 1);
+      if (tzKeys[idx] === (v >>> 0)) return tzVals[idx];
       const r = trailingZero32(v);
-      _tzCache.set(v, r);
+      tzKeys[idx] = v >>> 0;
+      tzVals[idx] = r;
       return r;
     };
     const cachedPop = (v: number) => {
-      const g = _popCache.get(v);
-      if (g !== undefined) return g;
+      if (v === 0) return 0;
+      const idx = ((v * 2654435761) >>> (32 - POP_CACHE_BITS)) & (POP_CACHE_SIZE - 1);
+      if (popKeys[idx] === (v >>> 0)) return popVals[idx];
       const r = popcount32(v);
-      _popCache.set(v, r);
+      popKeys[idx] = v >>> 0;
+      popVals[idx] = r;
       return r;
     };
 
@@ -871,52 +945,47 @@ declare const self: DedicatedWorkerGlobalScope;
           let usedPrecomp = false;
           const preTable = (entry as any).colAddsShiftTable as Uint32Array[] | undefined;
           const preMinY = (entry as any).colAddsShiftTableMinY as number | undefined;
-          if (preTable && typeof preMinY === "number") {
+          if (!FORCE_DISABLE_PRECOMP && preTable && typeof preMinY === "number") {
             const idx = y - preMinY;
             if (idx >= 0 && idx < preTable.length) {
               usedPrecomp = true;
               const __t_pc = profEnabledLocal ? profNowLocal() : 0;
               const tableRow = preTable[idx];
-              const idxMap = (entry as any).colAddListIndexMap as Uint8Array | undefined;
-              if (idxMap) {
-                for (let c = 0; c < COLS; c++) {
-                  const pos = idxMap[c];
-                  if (pos !== 255) {
-                    const mask = tableRow[pos] & rowMaskLimit;
-                    if (mask) tmpColBits[c] |= mask;
-                  }
-                }
-              } else {
-                for (let ii = 0; ii < colAddList.length; ii++) {
-                  const c = colAddList[ii];
-                  const mask = tableRow[ii] & rowMaskLimit;
-                  if (mask) tmpColBits[c] |= mask;
-                }
+              // iterate over colAddList (usually small) rather than all columns
+              const __t_coladd_iter0 = profEnabledLocal ? profNowLocal() : 0;
+              for (let ii = 0; ii < colAddList.length; ii++) {
+                const c = colAddList[ii];
+                const mask = tableRow[ii] & rowMaskLimit;
+                if (mask) tmpColBits[c] |= mask;
               }
-              if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_pc;
+              if (profEnabledLocal) {
+                __gp_apply_build_coladds_pre_table_apply += profNowLocal() - __t_pc;
+                __gp_apply_build_coladdlist_iter += profNowLocal() - __t_coladd_iter0;
+              }
+              __gp_coladds_precomp_hits++;
             }
           }
           if (!usedPrecomp) {
             // cache shifted per-column additions per-entry per-y to avoid recomputing shifts
-            let cacheObj = (entry as any).colAddsShiftCache;
-            if (!cacheObj || !cacheObj.map) {
-              cacheObj = { map: Object.create(null), keys: [] };
-              (entry as any).colAddsShiftCache = cacheObj;
-            }
-            const cacheKey = String(y);
-            let cacheForY: Uint32Array | undefined = cacheObj.map[cacheKey];
-            // LRU: on cache hit, move key to the back (most-recently-used)
-            if (cacheForY) {
-              const kidx = cacheObj.keys.indexOf(cacheKey);
-              if (kidx >= 0) {
-                cacheObj.keys.splice(kidx, 1);
-                cacheObj.keys.push(cacheKey);
+            // Use Map for insertion-ordered LRU: on hit delete+set to move to MRU
+            const poolKey = (entry as any).colAddsPoolKey as string | undefined;
+            const cacheKeyNum = y;
+            let cacheForY: Uint32Array | undefined;
+            if (poolKey) {
+              const gk = poolKey + '|' + String(cacheKeyNum);
+              cacheForY = GLOBAL_COLADDS_RUNTIME_CACHE.get(gk);
+              if (cacheForY) {
+                // move to MRU
+                GLOBAL_COLADDS_RUNTIME_CACHE.delete(gk);
+                GLOBAL_COLADDS_RUNTIME_CACHE.set(gk, cacheForY);
+                __gp_coladds_cache_hits++;
               }
             }
             if (!cacheForY) {
-              const __t_cache0 = profEnabledLocal ? profNowLocal() : 0;
+              const __t_cache_build0 = profEnabledLocal ? profNowLocal() : 0;
               cacheForY = new Uint32Array(colAddList.length);
               if (y >= 0) {
+                const __t_shift_loop = profEnabledLocal ? profNowLocal() : 0;
                 for (let ii = 0; ii < colAddList.length; ii++) {
                   const c = colAddList[ii];
                   const rel = colAdds[c] || 0;
@@ -924,8 +993,10 @@ declare const self: DedicatedWorkerGlobalScope;
                   const shifted = (rel << y) >>> 0;
                   cacheForY[ii] = shifted & rowMaskLimit;
                 }
+                if (profEnabledLocal) __gp_apply_build_cache_build_shift += profNowLocal() - __t_shift_loop;
               } else {
                 const rsh = -y;
+                const __t_shift_loop = profEnabledLocal ? profNowLocal() : 0;
                 for (let ii = 0; ii < colAddList.length; ii++) {
                   const c = colAddList[ii];
                   const rel = colAdds[c] || 0;
@@ -933,20 +1004,45 @@ declare const self: DedicatedWorkerGlobalScope;
                   const shifted = (rel >>> rsh) >>> 0;
                   cacheForY[ii] = shifted & rowMaskLimit;
                 }
+                if (profEnabledLocal) __gp_apply_build_cache_build_shift += profNowLocal() - __t_shift_loop;
               }
-              // eviction if exceeding per-entry cache limit
-              if (cacheObj.keys.length >= COL_ADDS_SHIFT_CACHE_LIMIT) {
-                const oldest = cacheObj.keys.shift();
-                if (oldest) delete cacheObj.map[oldest];
+              if (poolKey) {
+                const gk = poolKey + '|' + String(cacheKeyNum);
+                if (GLOBAL_COLADDS_RUNTIME_CACHE.size >= GLOBAL_COLADDS_RUNTIME_CACHE_LIMIT) {
+                  const it = GLOBAL_COLADDS_RUNTIME_CACHE.keys();
+                  const oldest = it.next().value;
+                  if (typeof oldest !== 'undefined') GLOBAL_COLADDS_RUNTIME_CACHE.delete(oldest);
+                }
+                GLOBAL_COLADDS_RUNTIME_CACHE.set(gk, cacheForY);
+              } else {
+                let cacheMap: Map<number, Uint32Array> | undefined = (entry as any).colAddsShiftCache;
+                if (!cacheMap || !(cacheMap instanceof Map)) {
+                  cacheMap = new Map();
+                  (entry as any).colAddsShiftCache = cacheMap;
+                }
+                if (cacheMap.size >= COL_ADDS_SHIFT_CACHE_LIMIT) {
+                  const it = cacheMap.keys();
+                  const oldest = it.next().value;
+                  if (typeof oldest !== 'undefined') cacheMap.delete(oldest);
+                }
+                cacheMap.set(cacheKeyNum, cacheForY);
               }
-              cacheObj.map[cacheKey] = cacheForY;
-              cacheObj.keys.push(cacheKey);
-              if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_cache0;
+              if (profEnabledLocal) {
+                __gp_apply_build_coladds_cache_build += profNowLocal() - __t_cache_build0;
+                __gp_apply_build_cache_build_loop += profNowLocal() - __t_cache_build0;
+              }
+              __gp_coladds_cache_misses++;
             }
+            const __t_cache_apply0 = profEnabledLocal ? profNowLocal() : 0;
+            const __t_cache_apply_loop = profEnabledLocal ? profNowLocal() : 0;
             for (let ii = 0; ii < colAddList.length; ii++) {
               const c = colAddList[ii];
               const mask = cacheForY[ii];
               if (mask) tmpColBits[c] |= mask;
+            }
+            if (profEnabledLocal) {
+              __gp_apply_build_coladds_cache_apply += profNowLocal() - __t_cache_apply0;
+              __gp_apply_build_cache_apply_loop += profNowLocal() - __t_cache_apply_loop;
             }
           }
         } else {
@@ -985,10 +1081,22 @@ declare const self: DedicatedWorkerGlobalScope;
             if (topCount === topKToUse) {
               const colsQuick = SET_BITS[colsMask];
               let onesAddedTotal = 0;
+              const prePopTable = (entry as any).colAddsShiftTablePop as Uint8Array[] | undefined;
+              const preMinYLocal = (entry as any).colAddsShiftTableMinY as number | undefined;
+              const colAddListIndexMapLocal = (entry as any).colAddListIndexMap as Uint8Array | undefined;
               for (let qi = 0; qi < colsQuick.length; qi++) {
                 const cc = colsQuick[qi];
                 const v = tmpColBits[cc] || 0;
-                if (v) onesAddedTotal += cachedPop(v);
+                if (!v) continue;
+                if (prePopTable && typeof preMinYLocal === 'number' && colAddListIndexMapLocal) {
+                  const ii = colAddListIndexMapLocal[cc];
+                  const idx = y - preMinYLocal;
+                  if (ii !== 255 && idx >= 0 && idx < prePopTable.length) {
+                    onesAddedTotal += prePopTable[idx][ii];
+                    continue;
+                  }
+                }
+                onesAddedTotal += cachedPop(v);
               }
               const optimisticHoles = Math.max(0, holesSum - onesAddedTotal);
               const optimisticScore = 0 * W_LINES - aggSum * W_AGG - optimisticHoles * W_HOLES - 0 * W_BUMP;
@@ -1017,10 +1125,26 @@ declare const self: DedicatedWorkerGlobalScope;
                 const oldFirst = colFirst[c];
                 // case: column was empty
                 if (oldFirst >= rowsForBoard) {
-                  const addLowest = cachedTZ(addBits);
+                  let addLowest: number;
+                  const preTZ = (entry as any).colAddsShiftTableTZ as Uint8Array[] | undefined;
+                  const prePopTable = (entry as any).colAddsShiftTablePop as Uint8Array[] | undefined;
+                  const preMinY = (entry as any).colAddsShiftTableMinY as number | undefined;
+                  const colAddListIndexMapLocal = (entry as any).colAddListIndexMap as Uint8Array | undefined;
+                  const ii = colAddListIndexMapLocal ? colAddListIndexMapLocal[c] : 255;
+                  const idx = typeof preMinY === 'number' ? y - preMinY : -1;
+                  if (preTZ && typeof preMinY === 'number' && colAddListIndexMapLocal && ii !== 255 && idx >= 0 && idx < preTZ.length) {
+                    addLowest = preTZ[idx][ii];
+                  } else {
+                    addLowest = cachedTZ(addBits);
+                  }
                   const newFirstIdx = addLowest;
                   const newH = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx;
-                  const onesAddedBelow = newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0;
+                  // onesAddedBelow: prefer precomputed total-pop minus lowest-bit (totalPop-1)
+                  let totalPop = -1;
+                  if (prePopTable && typeof preMinY === 'number' && colAddListIndexMapLocal && ii !== 255 && idx >= 0 && idx < prePopTable.length) {
+                    totalPop = prePopTable[idx][ii];
+                  }
+                  const onesAddedBelow = newFirstIdx >= rowsForBoard ? 0 : (totalPop >= 0 ? Math.max(0, totalPop - 1) : (newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0));
                   const newHole = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx - 1 - onesAddedBelow;
                   tmpNewHeights[c] = newH;
                   tmpNewHoles[c] = newHole;
@@ -1029,10 +1153,34 @@ declare const self: DedicatedWorkerGlobalScope;
                   deltaHoles += newHole - holesArr[c];
                   continue;
                 }
-                const addLowest = cachedTZ(addBits);
+                let addLowest: number;
+                const preTZ2 = (entry as any).colAddsShiftTableTZ as Uint8Array[] | undefined;
+                const preMinY2 = (entry as any).colAddsShiftTableMinY as number | undefined;
+                const colAddListIndexMapLocal2 = (entry as any).colAddListIndexMap as Uint8Array | undefined;
+                const ii2 = colAddListIndexMapLocal2 ? colAddListIndexMapLocal2[c] : 255;
+                const idx2 = typeof preMinY2 === 'number' ? y - preMinY2 : -1;
+                if (preTZ2 && typeof preMinY2 === 'number' && colAddListIndexMapLocal2 && ii2 !== 255 && idx2 >= 0 && idx2 < preTZ2.length) {
+                  addLowest = preTZ2[idx2][ii2];
+                } else {
+                  addLowest = cachedTZ(addBits);
+                }
                 if (addLowest >= oldFirst) {
                   // height unchanged; only holes may decrease (add bits fill zeros below first)
-                  const onesAddedBelow = oldFirst + 1 < 32 ? cachedPop(addBits >>> (oldFirst + 1)) : 0;
+                  // compute onesAddedBelow using small rel-mask (entry.colAdds) and y to avoid wide shifts
+                  let onesAddedBelow = 0;
+                  const relLocal = (entry as any).colAdds ? ((entry as any).colAdds[c] || 0) : 0;
+                  if (relLocal) {
+                    const offset = oldFirst + 1 - y;
+                    if (offset <= 0) {
+                      onesAddedBelow = POPCNT[relLocal & ((1 << COLS) - 1)];
+                    } else if (offset >= 32) {
+                      onesAddedBelow = 0;
+                    } else {
+                      onesAddedBelow = POPCNT[(relLocal >>> offset) & ((1 << COLS) - 1)];
+                    }
+                  } else {
+                    onesAddedBelow = 0;
+                  }
                   const newHole = holesArr[c] - onesAddedBelow;
                   tmpNewHeights[c] = heights[c];
                   tmpNewHoles[c] = newHole;
@@ -1044,7 +1192,19 @@ declare const self: DedicatedWorkerGlobalScope;
                 // addLowest < oldFirst -> new first comes from added bits
                 const newFirstIdx = addLowest;
                 const onesOldBelow = cachedPop(oldBits >>> (newFirstIdx + 1));
-                const onesAddedBelow = newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0;
+                // onesAddedBelow: prefer precomputed total-pop minus lowest-bit when available
+                let onesAddedBelow: number;
+                const prePopTable2 = (entry as any).colAddsShiftTablePop as Uint8Array[] | undefined;
+                const preMinY3 = (entry as any).colAddsShiftTableMinY as number | undefined;
+                const colAddListIndexMapLocal3 = (entry as any).colAddListIndexMap as Uint8Array | undefined;
+                const ii3 = colAddListIndexMapLocal3 ? colAddListIndexMapLocal3[c] : 255;
+                const idx3 = typeof preMinY3 === 'number' ? y - preMinY3 : -1;
+                if (prePopTable2 && typeof preMinY3 === 'number' && colAddListIndexMapLocal3 && ii3 !== 255 && idx3 >= 0 && idx3 < prePopTable2.length) {
+                  const totalPop2 = prePopTable2[idx3][ii3];
+                  onesAddedBelow = newFirstIdx >= rowsForBoard ? 0 : Math.max(0, totalPop2 - 1);
+                } else {
+                  onesAddedBelow = newFirstIdx + 1 < 32 ? cachedPop(addBits >>> (newFirstIdx + 1)) : 0;
+                }
                 const onesBelow = onesOldBelow + onesAddedBelow;
                 const newH = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx;
                 const newHole = newFirstIdx >= rowsForBoard ? 0 : rowsForBoard - newFirstIdx - 1 - onesBelow;
@@ -1058,14 +1218,17 @@ declare const self: DedicatedWorkerGlobalScope;
             // compute bump delta by checking neighbor boundaries touching modified columns
             const __t_delta_bump0 = profEnabledLocal ? profNowLocal() : 0;
             let deltaBump = 0;
-            for (let i = 0; i < COLS - 1; i++) {
-              if (!modifiedFlag[i] && !modifiedFlag[i + 1]) continue;
+            // build pair mask of adjacent column pairs affected by this placement
+            let pairsMask = colsMask | (colsMask << 1);
+            pairsMask &= ((1 << (COLS - 1)) - 1);
+            let pm = pairsMask;
+            while (pm) {
+              const lsb = pm & -pm;
+              const i = trailingZero32(lsb);
               const h0 = modifiedFlag[i] ? tmpNewHeights[i] : heights[i];
-              const h1 = modifiedFlag[i + 1]
-                ? tmpNewHeights[i + 1]
-                : heights[i + 1];
-              deltaBump +=
-                Math.abs(h0 - h1) - Math.abs(heights[i] - heights[i + 1]);
+              const h1 = modifiedFlag[i + 1] ? tmpNewHeights[i + 1] : heights[i + 1];
+              deltaBump += Math.abs(h0 - h1) - Math.abs(heights[i] - heights[i + 1]);
+              pm ^= lsb;
             }
             if (profEnabledLocal) __gp_delta_eval_bump += profNowLocal() - __t_delta_bump0;
             score =
@@ -1156,7 +1319,6 @@ declare const self: DedicatedWorkerGlobalScope;
           if (profEnabledLocal) __gp_compact_eval += profNowLocal() - __t_comp0;
         }
         placementsConsidered++;
-        const __t_heap0 = profEnabledLocal ? profNowLocal() : 0;
         if (topCount < topKToUse) {
           if (!finalBoard)
             finalBoard = anyCleared
@@ -1169,42 +1331,65 @@ declare const self: DedicatedWorkerGlobalScope;
             cleared: cleared || 0,
             score,
           } as Placement;
-          heapPush(candidate);
-        } else {
-          // min-heap root is smallest score; replace if current candidate is better
-          if (score > topPlacements[0].score) {
-            if (!finalBoard)
-              finalBoard = anyCleared
-                ? buildFinalBoardFromTmpColBits(n)
-                : cloneBitboard(scratch);
-            const candidate: Placement = {
-              x: entry.shift,
-              rot,
-              board: finalBoard,
-              cleared: cleared || 0,
-              score,
-            } as Placement;
-            heapReplaceRoot(candidate);
+          // insert into top-K heap (min-heap root at index 0)
+          const __t_heap0 = profEnabledLocal ? profNowLocal() : 0;
+          if (topKToUse <= 8) {
+            // fast small-K insertion using tracked min index
+            if (topCount < topKToUse) {
+              topPlacements[topCount] = candidate;
+              if (topCount === 0) {
+                topMinIndex = 0;
+                topMinScore = candidate.score;
+              } else {
+                if (candidate.score < topMinScore) {
+                  topMinScore = candidate.score;
+                  topMinIndex = topCount;
+                }
+              }
+              topCount++;
+              if (profEnabledLocal) __gp_heap_push += profNowLocal() - __t_heap0;
+            } else {
+              if (candidate.score > topMinScore) {
+                topPlacements[topMinIndex] = candidate;
+                // recompute min index
+                let mi = 0;
+                let ms = topPlacements[0].score;
+                for (let i = 1; i < topCount; i++) {
+                  const s = topPlacements[i].score;
+                  if (s < ms) {
+                    ms = s;
+                    mi = i;
+                  }
+                }
+                topMinIndex = mi;
+                topMinScore = ms;
+                if (profEnabledLocal) __gp_heap_replace += profNowLocal() - __t_heap0;
+              } else {
+                if (profEnabledLocal) __gp_heap += profNowLocal() - __t_heap0;
+              }
+            }
+          } else {
+            if (topCount < topKToUse) {
+              heapPush(candidate);
+              if (profEnabledLocal) __gp_heap_push += profNowLocal() - __t_heap0;
+            } else {
+              if (candidate.score > topPlacements[0].score) {
+                heapReplaceRoot(candidate);
+                if (profEnabledLocal) __gp_heap_replace += profNowLocal() - __t_heap0;
+              } else {
+                if (profEnabledLocal) __gp_heap += profNowLocal() - __t_heap0;
+              }
+            }
           }
         }
-        if (profEnabledLocal) __gp_heap += profNowLocal() - __t_heap0;
-        // restore only modified rows
-        const __t_rest0 = profEnabledLocal ? profNowLocal() : 0;
-        for (let ri = 0; ri < tmpSavedIdxLen; ri++) {
-          const r = tmpSavedIdx[ri];
-          const by = y + r;
-          if (by >= 0 && by < scratch.length) scratch[by] = tmpSavedRows[r];
-        }
-        tmpSavedIdxLen = 0;
-        if (profEnabledLocal) __gp_restore += profNowLocal() - __t_rest0;
+        // end candidate handling for this placement
       }
     }
-    // finalize top-K list and cache it
-    const topKToUseFinal = topKToUse;
-    // sort only the populated prefix
-    const topSlice = topPlacements.slice(0, topCount);
-    topSlice.sort((a, b) => b.score - a.score);
-    const top = topSlice.slice(0, topKToUseFinal);
+    // finalize top placements and cache them (LRU)
+    const finalized = topPlacements.slice(0, topCount).sort((a, b) => b.score - a.score);
+    try {
+      freeTopPlacements(topPlacements);
+    } catch (e) {}
     // aggregate profiler data for this invocation
     if (profEnabledLocal) {
       try {
@@ -1212,43 +1397,50 @@ declare const self: DedicatedWorkerGlobalScope;
         MPR.add("gpf.total", __t_end - __gp_start);
         if (__gp_place_check) MPR.add("gpf.place_check", __gp_place_check);
         if (__gp_drop_calc) MPR.add("gpf.drop_calc", __gp_drop_calc);
-        if (__gp_drop_adjust_up) MPR.add("gpf.drop_adjust_up", __gp_drop_adjust_up);
-        if (__gp_drop_adjust_down) MPR.add("gpf.drop_adjust_down", __gp_drop_adjust_down);
         if (__gp_apply_build) MPR.add("gpf.apply_build", __gp_apply_build);
+        if (__gp_apply_build_coladds_pre_table_apply) MPR.add("gpf.apply_build_coladds_pre_table_apply", __gp_apply_build_coladds_pre_table_apply);
+        if (__gp_apply_build_coladds_cache_build) MPR.add("gpf.apply_build_coladds_cache_build", __gp_apply_build_coladds_cache_build);
+        if (__gp_apply_build_coladds_cache_apply) MPR.add("gpf.apply_build_coladds_cache_apply", __gp_apply_build_coladds_cache_apply);
         if (__gp_apply_build_coladds) MPR.add("gpf.apply_build_coladds", __gp_apply_build_coladds);
-        if (__gp_apply_build_masks) MPR.add("gpf.apply_build_masks", __gp_apply_build_masks);
+        if (__gp_apply_build_coladdlist_iter) MPR.add("gpf.apply_build_coladdlist_iter", __gp_apply_build_coladdlist_iter);
+        if (__gp_apply_build_indexmap_scan) MPR.add("gpf.apply_build_indexmap_scan", __gp_apply_build_indexmap_scan);
+        if (__gp_apply_build_shift_calc) MPR.add("gpf.apply_build_shift_calc", __gp_apply_build_shift_calc);
+        if (__gp_apply_build_cache_build_shift) MPR.add("gpf.apply_build_cache_build_shift", __gp_apply_build_cache_build_shift);
+        if (__gp_apply_build_cache_build_loop) MPR.add("gpf.apply_build_cache_build_loop", __gp_apply_build_cache_build_loop);
+        if (__gp_apply_build_cache_apply_loop) MPR.add("gpf.apply_build_cache_apply_loop", __gp_apply_build_cache_apply_loop);
+        if (__gp_coladds_precomp_hits) MPR.add("gpf.coladds_precomp_hits", __gp_coladds_precomp_hits);
+        if (__gp_coladds_cache_hits) MPR.add("gpf.coladds_cache_hits", __gp_coladds_cache_hits);
+        if (__gp_coladds_cache_misses) MPR.add("gpf.coladds_cache_misses", __gp_coladds_cache_misses);
         if (__gp_delta_eval) MPR.add("gpf.delta_eval", __gp_delta_eval);
         if (__gp_delta_eval_cols) MPR.add("gpf.delta_eval_cols", __gp_delta_eval_cols);
         if (__gp_delta_eval_bump) MPR.add("gpf.delta_eval_bump", __gp_delta_eval_bump);
         if (__gp_compact_eval) MPR.add("gpf.compact_eval", __gp_compact_eval);
         if (__gp_heap) MPR.add("gpf.heap", __gp_heap);
+        if (__gp_heap_push) MPR.add("gpf.heap_push", __gp_heap_push);
+        if (__gp_heap_replace) MPR.add("gpf.heap_replace", __gp_heap_replace);
         if (__gp_restore) MPR.add("gpf.restore", __gp_restore);
       } catch (e) {}
     }
-    // cache only the top-K candidates to limit memory
-    placementCache.set(key, top);
-    placementCacheMisses++;
-    placementGeneratedCount += placementsConsidered;
-    if (placementCache.size > placementCacheMaxObserved)
-      placementCacheMaxObserved = placementCache.size;
-    if (placementCache.size > PLACEMENT_CACHE_MAX) {
-      const it = placementCache.keys();
-      const oldest = it.next().value;
-      if (typeof oldest !== "undefined") {
-        try {
-          placementCache.delete(oldest);
-          placementCacheEvictions++;
-        } catch (e) {}
-      }
-    }
-    // free pooled temporaries
     try {
-      freeTopPlacements(topPlacements);
+      placementCache.set(key, finalized);
+      placementCacheMisses++;
+      placementGeneratedCount += finalized.length;
+      if (placementCache.size > placementCacheMaxObserved) placementCacheMaxObserved = placementCache.size;
+      if (placementCache.size > PLACEMENT_CACHE_MAX) {
+        const it = placementCache.keys();
+        const oldest = it.next().value;
+        if (typeof oldest !== "undefined") {
+          try {
+            placementCache.delete(oldest);
+            placementCacheEvictions++;
+          } catch (e) {}
+        }
+      }
     } catch (e) {}
     try {
       freeColFirst(colFirst);
     } catch (e) {}
-    return top;
+    return finalized;
   }
 
   let cancelled = false;
