@@ -32,6 +32,8 @@
 
 - [高] `bench_results/` を `.gitignore` に追加し PR #11 から除外（履歴整理）
 - [高] PR #11 をレビューして差分を分割（コードの PR と bench_results を分離）
+ - [高] `bench_results/` を `.gitignore` に追加し PR #11 から除外（履歴整理） — 完了
+ - [高] PR #11 をレビューして差分を分割（コードの PR と bench_results を分離） — 完了（bench-results-archive ブランチへ移動）
 - [中] ドキュメント更新（`scripts/run_tuned_250ms_bench.js` の使い方、probe の説明）
 - [中] 追加チューニング（`EARLY_FALLBACK_MS` / `probeRounds` / `probeBudget` のグリッド）
 - [低] 集計結果を Markdown/CSV 化して PR に添付
@@ -43,4 +45,4 @@
 ## 進捗
 
 - 2026-05-24: bench_results/ を .gitignore に追加（完了）。
-- 次: PR #11 をコードと bench_results に分割して PR を分離する（作業中）。
+ - 次: PR #11 をコードと bench_results に分割して PR を分離する（完了）。
