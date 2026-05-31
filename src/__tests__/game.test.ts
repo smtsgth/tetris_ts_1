@@ -1,29 +1,31 @@
-import { describe, it, expect } from 'vitest';
-import Game from '../game';
-import { ROWS, COLS } from '../constants';
+import { describe, it, expect } from "vitest";
+import Game from "../game";
+import { ROWS, COLS } from "../constants";
 
-describe('game core', () => {
-  it('spawn creates current piece', () => {
+describe("game core", () => {
+  it("spawn creates current piece", () => {
     const g = new Game();
     expect(g.getState().current).not.toBeNull();
   });
 
-  it('clearLines removes full rows', () => {
+  it("clearLines removes full rows", () => {
     const g = new Game();
     // clear board and fill bottom row
-    (g as any).board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-    (g as any).board[ROWS - 1] = Array(COLS).fill('I');
+    (g as any).board = Array.from({ length: ROWS }, () =>
+      Array(COLS).fill(null),
+    );
+    (g as any).board[ROWS - 1] = Array(COLS).fill("I");
     const cleared = (g as any).clearLines();
     expect(cleared).toBe(1);
     expect(g.getState().lines).toBe(1);
   });
 
-  it('addScore with Tetris adds correct points', () => {
+  it("addScore with Tetris adds correct points", () => {
     const g = new Game();
     g.level = 0;
     (g as any).b2b = false;
     (g as any).combo = 0;
-    (g as any).addScore(4, 'none');
+    (g as any).addScore(4, "none");
     expect(g.getState().score).toBe(800);
   });
 });

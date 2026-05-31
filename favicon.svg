@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Tetris TS icon">
+  <title>Tetris TS</title>
+  <rect width="64" height="64" rx="10" fill="#0b1220" />
+  <g stroke="#000" stroke-width="1.5">
+    <rect x="8" y="8" width="16" height="16" fill="#00bcd4" rx="2" />
+    <rect x="24" y="8" width="16" height="16" fill="#ff9800" rx="2" />
+    <rect x="40" y="8" width="16" height="16" fill="#4caf50" rx="2" />
+    <rect x="24" y="24" width="16" height="16" fill="#8e44ad" rx="2" />
+  </g>
+</svg>

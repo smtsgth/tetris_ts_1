@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "startToFirst_stats": {
+      "count": 28178,
+      "min": 25,
+      "max": 558,
+      "mean": 49.174852721981686,
+      "median": 45,
+      "p95": 78
+    },
+    "workerRoundtrip_stats": {
+      "count": 30678,
+      "min": 37,
+      "max": 1011,
+      "mean": 93.67347936632115,
+      "median": 75,
+      "p95": 204
+    },
+    "profileTotal_stats": {
+      "count": 32301,
+      "min": 4,
+      "max": 669,
+      "mean": 37.4941333085663,
+      "median": 10,
+      "p95": 199
+    },
+    "counts": {
+      "reqStarts": 68322,
+      "earlyFallbackCount": 38320,
+      "fallbackAppliedCount": 10864,
+      "syncFallbackCount": 0,
+      "lockAnomalies": 0
+    }
+  },
+  "samples": {
+    "startToFirst": 28178,
+    "workerRoundtrip": 30678,
+    "profileTotal": 32301
+  }
+}

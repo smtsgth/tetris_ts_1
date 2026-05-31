@@ -1,0 +1,81 @@
+name: Microbench
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+      - 'feature/**'
+
+jobs:
+  microbench:
+    name: Run microbench and upload results
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start http server
+        run: |
+          npx http-server -p 8080 -c-1 . >/dev/null 2>&1 &
+
+      - name: Wait for server
+        run: |
+          for i in {1..15}; do
+            if curl -sSf http://127.0.0.1:8080/ >/dev/null 2>&1; then
+              echo "server up"; break
+            fi
+            sleep 1
+          done
+
+      - name: Run microbench (trials=200)
+        run: node scripts/run_microbench_sweep.js --trials 200 --mprof --url http://127.0.0.1:8080/ --outDir bench_results
+
+      - name: Run microbench (trials=500)
+        run: node scripts/run_microbench_sweep.js --trials 500 --mprof --url http://127.0.0.1:8080/ --outDir bench_results
+
+      - name: Aggregate microprof results
+        run: |
+          # Use an early cutoff to ensure all outputs are treated as post-run for the current job
+          node scripts/aggregate_mprof_split.js 1970-01-01T00-00-00-000Z
+
+      - name: Generate PR comment body
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          node scripts/ci_pr_comment.js > pr_comment.md || true
+
+      - name: Post PR comment
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s pr_comment.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md --repo ${{ github.repository }} || true
+          else
+            echo 'No comment generated.'
+          fi
+
+      - name: Show diff summary
+        run: |
+          echo '=== Diff summary ==='
+          head -n 200 bench_results/microprof_diff_*.json || true
+
+      - name: Upload bench_results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: microbench-results-${{ github.sha }}
+          path: bench_results

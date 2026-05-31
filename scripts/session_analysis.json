@@ -1,0 +1,38 @@
+{
+  "timestamp": 1778890863915,
+  "results": [
+    {
+      "file": "c:\\Users\\User\\AppData\\Roaming\\Code\\User\\workspaceStorage\\45740db47da2375f2c83af64a137dc1c\\GitHub.copilot-chat\\chat-session-resources\\7d945221-5f6c-499c-938d-5964948e53ad\\call_FdlAf0Uf3gzLLwfijKCc7qEc__vscode-1778758742660\\content.txt",
+      "durationSec": 41.429,
+      "countedAnomalies": 756,
+      "snapshotTotal": 1176,
+      "snapshotAnomalies": 857,
+      "eventsPerSec": 28.38591324917328,
+      "anomaliesPerSec": 20.685992903521687,
+      "anomalyRatio": 72.87414965986395,
+      "topPieces": [
+        ["T", 751],
+        ["I", 3],
+        ["J", 1],
+        ["O", 1]
+      ]
+    },
+    {
+      "file": "c:\\Users\\User\\AppData\\Roaming\\Code\\User\\workspaceStorage\\45740db47da2375f2c83af64a137dc1c\\GitHub.copilot-chat\\chat-session-resources\\7d945221-5f6c-499c-938d-5964948e53ad\\call_wkbDRnowrok4JuAv9Lb7LIwF__vscode-1778758742657\\content.txt",
+      "durationSec": 6.104,
+      "countedAnomalies": 106,
+      "snapshotTotal": 144,
+      "snapshotAnomalies": 101,
+      "eventsPerSec": 23.591087811271297,
+      "anomaliesPerSec": 16.546526867627787,
+      "anomalyRatio": 70.13888888888889,
+      "topPieces": [
+        ["T", 101],
+        ["S", 1],
+        ["J", 1],
+        ["I", 1],
+        ["Z", 1]
+      ]
+    }
+  ]
+}

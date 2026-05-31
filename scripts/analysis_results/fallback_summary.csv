@@ -1,0 +1,5 @@
+metric,value
+"reqStarts",68322
+"earlyFallbackCount",38320
+"fallbackAppliedCount",10864
+"syncFallbackCount",0

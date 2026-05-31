@@ -1,4 +1,8 @@
 node_modules/
+tmp/
+bench_results/
+recordings/
+dist/node_modules/
 recordings/
 **/*.png
 **/*.jpg

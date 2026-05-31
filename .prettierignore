@@ -1,0 +1,6 @@
+.prettierignore
+node_modules/
+tmp/
+bench_results/
+recordings/
+dist/
