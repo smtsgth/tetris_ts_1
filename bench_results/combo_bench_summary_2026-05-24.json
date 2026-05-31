@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-05-24T00:00:00Z",
+  "top5": [
+    { "pool": 1, "timeout": 700, "perNodeLimit": 2, "topK": 2, "beamWidthBase": 2, "avg": 0.1, "median": 0, "p90": 1 },
+    { "pool": 2, "timeout": 700, "perNodeLimit": 2, "topK": 1, "beamWidthBase": 2, "avg": 0.1, "median": 0, "p90": 1 },
+    { "pool": 2, "timeout": 3000, "perNodeLimit": 2, "topK": 2, "beamWidthBase": 2, "avg": 0.1, "median": 0, "p90": 1 },
+    { "pool": 3, "timeout": 700, "perNodeLimit": 1, "topK": 2, "beamWidthBase": 2, "avg": 0.1, "median": 0, "p90": 1 },
+    { "pool": 3, "timeout": 3000, "perNodeLimit": 1, "topK": 2, "beamWidthBase": 2, "avg": 0.1, "median": 0, "p90": 1 }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "inputFile": "C:\\dev_root\\tetris_ts_1\\bench_results\\tuned_250ms_pool4_probe3_run6.json",
+  "totalExperiments": 1,
+  "avgTrials": 50,
+  "meanOfMeans": 64.54,
+  "medianOfMeans": 64.54,
+  "p90OfMeans": 64.54,
+  "experimentsWithTimeouts": 0,
+  "anyErrors": 0,
+  "experiments_mean_gt_1ms": 1,
+  "experiments_mean_le_1ms": 0,
+  "poolSummary": {
+    "4": {
+      "count": 1,
+      "avgMeanMs": 64.54
+    }
+  },
+  "generatedAt": "2026-05-24T11:00:34.737Z"
+}
