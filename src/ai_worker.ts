@@ -92,6 +92,7 @@ declare const self: DedicatedWorkerGlobalScope;
     // precomputed shifted masks table for a range of y values (optional)
     colAddsShiftTable?: Uint32Array[];
     colAddsShiftTableMinY?: number;
+    colAddListIndexMap?: Uint8Array;
   };
   type PreRotMap = Record<string, number[][][]>;
   type RotBBoxMap = Record<string, { minC: number; maxC: number }[]>;
@@ -233,6 +234,13 @@ declare const self: DedicatedWorkerGlobalScope;
         const colsListArr: number[] = [];
         for (let c = 0; c < COLS; c++) if (colAdds[c]) colsListArr.push(c);
         const colAddList = new Uint8Array(colsListArr);
+        // build a column->index map for fast lookup when using precomputed tables
+        const colAddListIndexMap = new Uint8Array(COLS);
+        for (let ci = 0; ci < COLS; ci++) colAddListIndexMap[ci] = 255;
+        for (let ii = 0; ii < colAddList.length; ii++) {
+          const cc = colAddList[ii];
+          colAddListIndexMap[cc] = ii;
+        }
         // precompute shifted masks for a fixed y-range to avoid runtime shifting
         let colAddsShiftTable: Uint32Array[] | undefined;
         if (colAddList.length > 0) {
@@ -259,7 +267,7 @@ declare const self: DedicatedWorkerGlobalScope;
             colAddsShiftTable[yi] = arr;
           }
         }
-        masksArr.push({ shift, masks, topRows, colAdds, colAddList, colAddsShiftTable, colAddsShiftTableMinY: PRECOMP_COLADDS_Y_MIN });
+        masksArr.push({ shift, masks, topRows, colAdds, colAddList, colAddsShiftTable, colAddsShiftTableMinY: PRECOMP_COLADDS_Y_MIN, colAddListIndexMap });
       }
       PRE_ROT_ROW_MASKS[t][rot] = { minX, maxX, masksArr };
     }
@@ -869,10 +877,21 @@ declare const self: DedicatedWorkerGlobalScope;
               usedPrecomp = true;
               const __t_pc = profEnabledLocal ? profNowLocal() : 0;
               const tableRow = preTable[idx];
-              for (let ii = 0; ii < colAddList.length; ii++) {
-                const c = colAddList[ii];
-                const mask = tableRow[ii] & rowMaskLimit;
-                if (mask) tmpColBits[c] |= mask;
+              const idxMap = (entry as any).colAddListIndexMap as Uint8Array | undefined;
+              if (idxMap) {
+                for (let c = 0; c < COLS; c++) {
+                  const pos = idxMap[c];
+                  if (pos !== 255) {
+                    const mask = tableRow[pos] & rowMaskLimit;
+                    if (mask) tmpColBits[c] |= mask;
+                  }
+                }
+              } else {
+                for (let ii = 0; ii < colAddList.length; ii++) {
+                  const c = colAddList[ii];
+                  const mask = tableRow[ii] & rowMaskLimit;
+                  if (mask) tmpColBits[c] |= mask;
+                }
               }
               if (profEnabledLocal) __gp_apply_build_coladds += profNowLocal() - __t_pc;
             }
